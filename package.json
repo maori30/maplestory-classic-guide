@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maori30/maplestory-classic-guide.git"
+  },
   "main": "electron.cjs",
   "scripts": {
     "dev": "vite",
@@ -16,6 +20,13 @@
   "build": {
     "appId": "com.maplestory.classicguide",
     "productName": "מדריך מייפל סטורי קלאסי",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "maori30",
+        "repo": "maplestory-classic-guide"
+      }
+    ],
     "directories": {
       "output": "release"
     },

@@ -5,7 +5,9 @@ import GlobalOmnibar from './components/GlobalOmnibar.jsx';
 import ClassSelectorModal from './components/ClassSelectorModal.jsx';
 import LiveSyncModal from './components/LiveSyncModal.jsx';
 import BuildShareModal from './components/BuildShareModal.jsx';
+import UpdateModal from './components/UpdateModal.jsx';
 import { getLastSyncInfo, applyCachedSync } from './services/liveSyncService.js';
+import { checkForAppUpdates, CURRENT_VERSION } from './services/updateService.js';
 import { ITEMS_DATABASE } from './data/items.js';
 import { MONSTERS_DATABASE } from './data/monsters.js';
 import { MAPLE_ICON } from './assets/mapleIcon.js';
@@ -39,6 +41,8 @@ export default function App() {
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [hasNewUpdate, setHasNewUpdate] = useState(false);
   const [syncInfo, setSyncInfo] = useState(() => getLastSyncInfo());
 
   // Apply cached live sync data on startup & listen for updates
@@ -49,6 +53,14 @@ export default function App() {
       setSyncInfo(getLastSyncInfo());
     };
     window.addEventListener('maple-live-synced', handleSynced);
+
+    // Check for GitHub Releases updates in the background
+    checkForAppUpdates().then((res) => {
+      if (res && res.hasUpdate) {
+        setHasNewUpdate(true);
+      }
+    }).catch(() => {});
+
     return () => window.removeEventListener('maple-live-synced', handleSynced);
   }, []);
 
@@ -398,6 +410,29 @@ export default function App() {
               {syncInfo?.formattedTime && (
                 <span className="text-[11px] text-emerald-300/80 font-mono">
                   ({syncInfo.formattedTime.split(' ')[1] || syncInfo.formattedTime})
+                </span>
+              )}
+            </button>
+
+            {/* GitHub Updates Button */}
+            <button
+              onClick={() => setIsUpdateModalOpen(true)}
+              className={`liquid-glass-pill px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border shadow-md group transition ${
+                hasNewUpdate
+                  ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200 ring-2 ring-emerald-400/50 animate-pulse'
+                  : 'border-purple-400/40 text-purple-200 hover:text-white hover:border-purple-400/80'
+              }`}
+              title={t('updatesBtn')}
+            >
+              <span className="text-sm">🐙</span>
+              <span>{t('updatesBtn')}</span>
+              {hasNewUpdate ? (
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-400 text-slate-950 font-mono animate-bounce">
+                  UPDATE!
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono text-purple-300/80 bg-purple-500/15 px-1.5 py-0.5 rounded border border-purple-400/20">
+                  v{CURRENT_VERSION}
                 </span>
               )}
             </button>
@@ -1308,6 +1343,12 @@ export default function App() {
         currentStep={currentStep}
         skillsInfo={skillsInfo}
         onLoadBuild={handleLoadCustomBuild}
+      />
+
+      {/* GitHub Update & Version Center Modal */}
+      <UpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
       />
 
     </div>

@@ -190,6 +190,7 @@ export const TRANSLATIONS = {
     secretPortalStep: 'מעבר פורטל נסתר [↑]',
     regularTravelStep: 'הליכה במסלול רגיל [→]',
     mainHuntingMap: 'מפת ציד מרכזית',
+    updatesBtn: 'עדכוני גרסה מ-GitHub',
     // Build Share & Import
     shareBuildBtn: 'שיתוף וייבוא בילד',
     shareModalTitle: 'מרכז שיתוף וייבוא בילדים (Build Share & Import)',
@@ -398,6 +399,7 @@ export const TRANSLATIONS = {
     secretPortalStep: 'Secret Hidden Portal [↑]',
     regularTravelStep: 'Follow Path Forward [→]',
     mainHuntingMap: 'Main Hunting Map',
+    updatesBtn: 'GitHub Updates',
     // Build Share & Import
     shareBuildBtn: 'Share & Import Build',
     shareModalTitle: 'Build Share & Import Center',
@@ -606,6 +608,7 @@ export const TRANSLATIONS = {
     secretPortalStep: 'מעבר פורטל נסתר [↑]',
     regularTravelStep: 'הליכה במסלול רגיל [→]',
     mainHuntingMap: 'מפת ציד מרכזית',
+    updatesBtn: 'עדכוני גרסה מ-GitHub',
     // Build Share & Import
     shareBuildBtn: 'שיתוף וייבוא (Share & Import)',
     shareModalTitle: 'מרכז שיתוף וייבוא בילדים (Build Share & Import)',
