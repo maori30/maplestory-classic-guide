@@ -251,8 +251,8 @@ export default function App() {
         ? `As a ${activeJob.name}, begin your journey in ${activeJob.town}. Use your primary skill for fast, reliable single-target damage against beginner monsters.`
         : `בתור ${activeJob.nameHe}, התחל את דרכך בעיר ${activeJob.town}. נצל את מתקפת הבסיס הראשית לחלוקת נזק מהירה על מפלצות מתחילות.`;
       secondaryTip = isEn
-        ? `Ensure you allocate AP according to rule: ${instructionText}`
-        : `הקפד להשקיע AP לפי הכלל: ${instructionText}`;
+        ? `Ensure you allocate AP according to rule: ${apDetails.instructionText}`
+        : `הקפד להשקיע AP לפי הכלל: ${apDetails.instructionText}`;
       gearAdvice = isEn
         ? `Equip Lv 10-15 weapons from the ${activeJob.town} weapon shop or hunt Slimes and Mushrooms.`
         : `הצטייד בנשק רמה 10-15 מחנות העיר ${activeJob.town} או מציד סליימים ופטריות.`;
