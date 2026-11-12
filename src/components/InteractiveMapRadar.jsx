@@ -745,8 +745,40 @@ export function getAuthenticMapLayout(locationName, town, monster, locIndex = 0)
     };
   }
 
+  // 10a. Victoria Road: Thicket Around the Beach (Mano & Snails Coastal Grassy Hills)
+  if (locStr.includes('thicket around') || locStr.includes('thicket around beach') || locStr.includes('סבך סביב') || locStr.includes('lith harbor outskirts') || (townStr.includes('lith harbor') && !locStr.includes('florina'))) {
+    return {
+      id: `map_thicket_beach_${locIndex}`,
+      name: locationName || 'Victoria Road: Thicket Around the Beach III (סבך סביב החוף 3 - מאורת מאנו)',
+      town: 'Lith Harbor Outskirts',
+      bg: '#0a2318',
+      theme: 'victoria_coast',
+      platforms: [
+        { x: 30, y: 55, w: 180, h: 14, color: '#14532d', border: '#4ade80', name: 'מדף דשא וסלעי חוף עליון (Safe Spot)' },
+        { x: 380, y: 60, w: 190, h: 14, color: '#14532d', border: '#4ade80', name: 'מדף שיחים ימני' },
+        { x: 150, y: 112, w: 300, h: 14, color: '#166534', border: '#86efac', name: 'פלטפורמת דשא מרכזית (מאנו)' },
+        { x: 40, y: 155, w: 170, h: 12, color: '#15803d', border: '#22c55e', name: 'מדף חלזונות שמאל' },
+        { x: 390, y: 155, w: 170, h: 12, color: '#15803d', border: '#22c55e', name: 'מדף חלזונות ימין' },
+        { x: 0, y: 195, w: 600, h: 35, color: '#052e16', border: '#16a34a', name: 'שביל חוף ירוק פאתי ליט הארבור' }
+      ],
+      ropes: [
+        { x: 120, y1: 55, y2: 195 },
+        { x: 480, y1: 60, y2: 195 },
+        { x: 300, y1: 112, y2: 195 }
+      ],
+      portal: { x: 50, y: 182, label: 'שער ל-Thicket Around Beach II [↑]', sub: 'Beach II Portal' },
+      safeSpot: { x: 50, y: 40, w: 100, label: '🛡️ מדף סלעים עליון מוגן' },
+      mobs: [
+        { normX: 120, y: 45, minX: 40, maxX: 200, icon: mIcon, name: `${mName} Lv.${mLevel}`, bounce: 0.2, dir: 1, speed: 0.5 },
+        { normX: 470, y: 50, minX: 400, maxX: 560, icon: mIcon, name: `${mName} Lv.${mLevel}`, bounce: 1.2, dir: -1, speed: 0.6 },
+        { normX: 290, y: 102, minX: 170, maxX: 430, icon: mIcon, name: `${mName} (Mano Boss)`, bounce: 0.6, dir: 1, speed: 0.4 },
+        { normX: 250, y: 182, minX: 50, maxX: 550, icon: mIcon, name: `${mName}`, bounce: 1.8, dir: -1, speed: 0.5 }
+      ]
+    };
+  }
+
   // 10b. Florina Beach & Clang / Lorang Shore
-  if (locStr.includes('florina') || locStr.includes('beach') || locStr.includes('clang') || locStr.includes('lorang') || locStr.includes('warm sand') || locStr.includes('חוף פלורינה')) {
+  if (locStr.includes('florina') || (locStr.includes('beach') && !locStr.includes('thicket')) || locStr.includes('clang') || locStr.includes('lorang') || locStr.includes('warm sand') || locStr.includes('חוף פלורינה')) {
     return {
       id: `map_florina_${locIndex}`,
       name: locationName || 'Florina Beach: Clang Beach / Warm Sand (חוף פלורינה)',
@@ -1203,12 +1235,21 @@ export default function InteractiveMapRadar({
     setInternalLocIndex(0);
   }, [monster?.id]);
 
-  // Mode switcher: 'realMap' (authentic in-game minimap & render) vs 'radar' (2D platforms simulation)
-  const [viewMode, setViewMode] = useState('realMap');
+  // Mode switcher: 'radar' (2D platforms simulation - default & reliable), 'minimap' (MiniMap HUD), 'render' (authentic HD in-game render)
+  const [viewMode, setViewMode] = useState('radar');
+  const [minimapError, setMinimapError] = useState(false);
+  const [renderError, setRenderError] = useState(false);
   const [showPortalModal, setShowPortalModal] = useState(false);
   const [renderZoom, setRenderZoom] = useState(1);
   const [showPins, setShowPins] = useState(true);
   const [activePin, setActivePin] = useState(null);
+
+  // Reset errors and zoom when active map changes
+  useEffect(() => {
+    setMinimapError(false);
+    setRenderError(false);
+    setRenderZoom(1);
+  }, [selectedLocIndex, monster?.id, activeLocationIndex]);
 
   // Close fullscreen on Escape key
   useEffect(() => {
@@ -1261,8 +1302,13 @@ export default function InteractiveMapRadar({
     }));
   }, [currentMap]);
 
+  // Resolved high-res render and minimap image sources (local files take priority)
+  const renderSrc = realMapData?.localRender || realMapData?.render || realMapData?.renderUrl;
+  const minimapSrc = realMapData?.localMinimap || realMapData?.minimap || realMapData?.minimapUrl;
+
   // Main Canvas Render & Animation Loop
   useEffect(() => {
+    if (viewMode !== 'radar') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -1534,7 +1580,7 @@ export default function InteractiveMapRadar({
 
     render();
     return () => cancelAnimationFrame(animId);
-  }, [currentMap, isPlaying]);
+  }, [currentMap, isPlaying, viewMode]);
 
   // Mouse hover detection over canvas
   const handleMouseMove = (e) => {
@@ -1601,29 +1647,43 @@ export default function InteractiveMapRadar({
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
               {realMapData.streetName && <strong className="text-cyan-400 font-mono">{realMapData.streetName} • </strong>}
-              {viewMode === 'realMap' 
-                ? 'תצוגת מיקום אמיתי מהמשחק: מפת MiniMap רשמית, תצלום פנורמי מפורט ונקודות צליפה'
-                : 'רדאר שטח 2D מונפש בזמן אמת • סימולציית פלטפורמות, מפלצות ופורטלים'}
+              {viewMode === 'render'
+                ? (isEn ? 'High-resolution in-game panoramic terrain render & platforms view' : 'תצלום שטח פנורמי אותנטי מהמשחק ברזולוציה גבוהה')
+                : viewMode === 'minimap'
+                ? (isEn ? 'Official in-game HUD MiniMap with safe spots & spawns' : 'מפת MiniMap מקורית מהמשחק עם עמדות צלפים וריכוז מפלצות')
+                : (isEn ? 'Live 2D physics & platforms tactical radar simulation' : 'סימולציית רדאר שטח 2D מונפשת בזמן אמת')}
             </p>
           </div>
         </div>
 
-        {/* View Switcher: Real Map vs Radar + Hidden Portal Trigger + Fullscreen */}
+        {/* View Switcher: Render vs MiniMap vs Radar + Hidden Portal Trigger + Fullscreen */}
         {showControls && (
           <div className="flex items-center gap-2 flex-wrap">
-            {/* View Mode Toggle: Real Map vs Radar */}
-            <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-sky-400/30 shadow-inner">
+            {/* View Mode Segmented Controls */}
+            <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-sky-400/30 shadow-inner flex-wrap gap-1">
               <button
-                onClick={() => setViewMode('realMap')}
+                onClick={() => setViewMode('render')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  viewMode === 'realMap'
+                  viewMode === 'render'
                     ? 'bg-cyan-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
-                title="הצג מפת משחק רשמית מהמשחק (Real Map & MiniMap)"
+                title="הצג תצלום שטח פנורמי מלא של המפה מהמשחק"
               >
-                <span>🗺️</span>
-                <span>מפת משחק אמיתית</span>
+                <span>📸</span>
+                <span>{isEn ? 'HD Render' : 'תצלום פנורמי'}</span>
+              </button>
+              <button
+                onClick={() => setViewMode('minimap')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  viewMode === 'minimap'
+                    ? 'bg-cyan-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="הצג מפת MiniMap אותנטית מחלון המשחק"
+              >
+                <span>🍁</span>
+                <span>{isEn ? 'MiniMap' : 'מפת MiniMap'}</span>
               </button>
               <button
                 onClick={() => setViewMode('radar')}
@@ -1632,31 +1692,22 @@ export default function InteractiveMapRadar({
                     ? 'bg-cyan-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
-                title="הצג סימולציית פלטפורמות טקטית (Radar Simulation)"
+                title="הצג סימולציית רדאר שטח 2D אינטראקטיבית"
               >
                 <span>📡</span>
-                <span>רדאר פלטפורמות</span>
+                <span>{isEn ? '2D Radar' : 'רדאר 2D חי'}</span>
               </button>
             </div>
 
             {/* Live Hidden Portal Showcase Trigger Button */}
-            {liveHiddenPortal ? (
+            {liveHiddenPortal && (
               <button
                 onClick={() => setShowPortalModal(true)}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500/20 via-amber-500/30 to-amber-600/20 text-amber-300 border-2 border-amber-400 hover:border-amber-300 hover:scale-105 transition flex items-center gap-1.5 shadow-lg shadow-amber-500/20 animate-pulse"
+                className="px-3 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500/20 via-amber-500/30 to-amber-600/20 text-amber-300 border-2 border-amber-400 hover:border-amber-300 transition flex items-center gap-1.5 shadow-md shadow-amber-500/20"
                 title="צפה בדוגמה חיה מתוך המשחק לפורטל הנסתר של מפה זו"
               >
                 <span>🚪</span>
-                <span>דוגמה חיה לפורטל נסתר [תצלום ומפה]</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowPortalModal(true)}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 transition flex items-center gap-1 shadow-sm"
-                title="פתח גלריית תצלומים חיים לפורטלים נסתרים"
-              >
-                <span>🚪</span>
-                <span>גלריית פורטלים נסתרים</span>
+                <span>{isEn ? 'Hidden Portal Guide' : 'מדריך פורטל סודי'}</span>
               </button>
             )}
 
@@ -1668,7 +1719,7 @@ export default function InteractiveMapRadar({
                 title={isPlaying ? 'עצור אנימציה' : 'הפעל אנימציה'}
               >
                 <span>{isPlaying ? '⏸️' : '▶️'}</span>
-                <span>{isPlaying ? 'עצור' : 'הפעל'}</span>
+                <span>{isPlaying ? (isEn ? 'Pause' : 'עצור') : (isEn ? 'Play' : 'הפעל')}</span>
               </button>
             )}
 
@@ -1679,14 +1730,14 @@ export default function InteractiveMapRadar({
               title={isExpanded ? 'הקטן לתצוגה רגילה' : 'הגדל למסך מלא'}
             >
               <span>⛶</span>
-              <span>{isExpanded ? 'צמצם חזרה' : 'הגדל למסך מלא'}</span>
+              <span>{isExpanded ? (isEn ? 'Collapse' : 'צמצם חזרה') : (isEn ? 'Fullscreen' : 'מסך מלא')}</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* Monster Location Switcher Tabs (Outside North Entrance of Ariant, Sahel 2, etc.) */}
-      {monster && monster.locations && monster.locations.length > 1 && (
+      {/* Monster Location Switcher Tabs - ONLY shown if standalone (not controlled by parent) */}
+      {monster && monster.locations && monster.locations.length > 1 && (activeLocationIndex === null || activeLocationIndex === undefined) && (
         <div className="flex items-center gap-1.5 bg-slate-900/90 p-2 rounded-xl border border-white/10 text-xs flex-wrap">
           <span className="text-xs text-slate-300 font-bold px-2 shrink-0 flex items-center gap-1">
             <span>📍</span>
@@ -1703,264 +1754,231 @@ export default function InteractiveMapRadar({
               }`}
             >
               <span>🗺️</span>
-              <span>{loc}</span>
+              <bdi>{loc}</bdi>
             </button>
           ))}
         </div>
       )}
 
-      {/* --- REAL GAME MAP VIEW (Official MiniMap HUD & Full Map Render) --- */}
-      {viewMode === 'realMap' ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* MapleStory Classic MiniMap HUD Window (4 Cols) */}
-            <div className="lg:col-span-5 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 rounded-2xl p-4 border-2 border-emerald-500/40 shadow-xl space-y-3 flex flex-col justify-between">
-              {/* MiniMap Classic Title Header */}
-              <div className="flex items-center justify-between border-b border-emerald-500/30 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🍁</span>
-                  <div>
-                    <h6 className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-1.5">
-                      <span>MiniMap:</span>
-                      <span className="text-white">{realMapData.nameHe}</span>
-                    </h6>
-                    <p className="text-[11px] font-mono text-slate-400">
-                      {realMapData.nameEn}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowPins(!showPins)}
-                  className={`text-[10px] font-mono px-2 py-0.5 rounded border transition ${
-                    showPins
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 font-bold'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}
-                  title="הצג / הסתר נקודות ציון על מפת המינימאפ"
-                >
-                  {showPins ? '📌 סימונים: פעיל' : '📌 סימונים: כבוי'}
-                </button>
-              </div>
-
-              {/* Minimap Image with Interactive Radar Pins Overlay */}
-              <div className="relative rounded-xl overflow-hidden border-2 border-slate-800 bg-slate-950/90 flex items-center justify-center p-3 min-h-[190px] shadow-inner group">
-                {realMapData.minimapUrl ? (
-                  <img
-                    src={realMapData.minimapUrl}
-                    alt={realMapData.nameEn}
-                    className="max-h-48 max-w-full object-contain filter contrast-125 select-none drop-shadow-md"
-                  />
-                ) : (
-                  <div className="text-slate-500 text-xs font-mono p-6 text-center">
-                    טוען מפת MiniMap אותנטית...
-                  </div>
-                )}
-
-                {/* Interactive Overlaid Pins */}
-                {showPins && (
-                  <>
-                    {/* Safe Spot Pin */}
-                    <button
-                      onClick={() => setActivePin({
-                        title: 'עמדת צלפים מוגנת (Safe Sniping Spot)',
-                        text: realMapData.snipingSpotHe || 'עמדת יתרון גובה לזריקת Lucky Seven ללא פגיעת מגע ממפלצות'
-                      })}
-                      className="absolute top-6 left-8 px-2 py-1 rounded-lg bg-purple-950/90 border border-purple-400 text-purple-200 text-[10px] font-bold shadow-lg hover:scale-110 transition flex items-center gap-1 animate-pulse"
-                      title="לחץ לצפייה בפרטי עמדת הצלפים"
-                    >
-                      <span>🛡️</span>
-                      <span>Safe Spot</span>
-                    </button>
-
-                    {/* Mob Spawn Pin */}
-                    <button
-                      onClick={() => setActivePin({
-                        title: 'אזור ספאון מפלצות ראשי',
-                        text: `${realMapData.mobSpawnRate || 'צפיפות מפלצות גבוהה'} • מפלצות: ${realMapData.mobsPresent?.join(', ') || monster?.name}`
-                      })}
-                      className="absolute bottom-6 right-10 px-2 py-1 rounded-lg bg-red-950/90 border border-red-400 text-red-200 text-[10px] font-bold shadow-lg hover:scale-110 transition flex items-center gap-1"
-                      title="לחץ לצפייה בפרטי ספאון המפלצות"
-                    >
-                      <span>🔴</span>
-                      <span>Mob Spawn</span>
-                    </button>
-
-                    {/* Portals Pin */}
-                    {realMapData.portals && realMapData.portals.length > 0 && (
-                      <button
-                        onClick={() => setActivePin({
-                          title: 'פורטל מעבר במפה',
-                          text: realMapData.portals.map(p => `${p.name} -> ${p.toMap}`).join(' • ')
-                        })}
-                        className="absolute bottom-6 left-10 px-2 py-1 rounded-lg bg-cyan-950/90 border border-cyan-400 text-cyan-200 text-[10px] font-bold shadow-lg hover:scale-110 transition flex items-center gap-1"
-                        title="לחץ לצפייה בפורטלים"
-                      >
-                        <span>🚪</span>
-                        <span>Portal</span>
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Active Pin Callout Details */}
-              {activePin && (
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-cyan-400/40 text-xs text-slate-200 space-y-1 shadow animate-fadeIn">
-                  <div className="flex items-center justify-between text-cyan-300 font-bold">
-                    <span>📍 {activePin.title}</span>
-                    <button
-                      onClick={() => setActivePin(null)}
-                      className="text-slate-400 hover:text-white text-[11px]"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
-                    {activePin.text}
-                  </p>
-                </div>
-              )}
-
-              {/* MiniMap Footer Data */}
-              <div className="flex items-center justify-between text-[11px] text-slate-300 border-t border-slate-800 pt-2 font-mono">
-                <span>עיר: <strong className="text-white">{realMapData.townHe || realMapData.town}</strong></span>
-                <span>מחוז: <strong className="text-cyan-400">{realMapData.streetName || 'Victoria'}</strong></span>
-              </div>
+      {/* --- MODE 1: HIGH-RES PANORAMIC TERRAIN RENDER --- */}
+      {viewMode === 'render' && (
+        <div className="space-y-3 animate-fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/70 px-3 py-2 rounded-xl border border-slate-800 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📸</span>
+              <span className="font-bold text-cyan-300">
+                {isEn ? 'Panoramic Terrain View (Scroll & Zoom)' : 'תצלום פנורמי של מפת השטח (גלילה וזום חופשי)'}
+              </span>
             </div>
 
-            {/* High-Resolution Full Map Render Viewport (7 Cols) */}
-            <div className="lg:col-span-7 bg-slate-900/90 rounded-2xl p-4 border border-cyan-500/30 shadow-xl space-y-3 flex flex-col justify-between">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">📸</span>
-                  <span className="text-xs sm:text-sm font-bold text-cyan-300">
-                    תצלום שטח פנורמי מלא מהמשחק (High-Res Map Render)
-                  </span>
-                </div>
-
-                {/* Zoom Controls */}
-                <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-xs">
-                  <button
-                    onClick={() => setRenderZoom(prev => Math.max(0.6, prev - 0.2))}
-                    className="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-300 font-bold"
-                    title="הקטן זום"
-                  >
-                    -
-                  </button>
-                  <span className="font-mono text-[11px] text-cyan-300 px-1">
-                    {Math.round(renderZoom * 100)}%
-                  </span>
-                  <button
-                    onClick={() => setRenderZoom(prev => Math.min(2.5, prev + 0.2))}
-                    className="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-300 font-bold"
-                    title="הגדל זום"
-                  >
-                    +
-                  </button>
-                  <button
-                    onClick={() => setRenderZoom(1)}
-                    className="text-[10px] text-slate-400 hover:text-white px-1 border-r border-slate-700 mr-1 pr-1 font-bold"
-                    title="איפוס ל-100%"
-                  >
-                    איפוס
-                  </button>
-                </div>
-              </div>
-
-              {/* Scrollable Panoramic Map Viewport */}
-              <div className="relative rounded-xl overflow-auto border border-slate-800 bg-slate-950 shadow-inner h-64 sm:h-72 max-h-80 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-950">
-                <div
-                  className="w-full flex items-center justify-center p-2 min-h-full transition-transform duration-200"
-                  style={{
-                    transform: `scale(${renderZoom})`,
-                    transformOrigin: 'center center'
-                  }}
-                >
-                  <img
-                    src={realMapData.renderUrl || realMapData.minimapUrl}
-                    alt={realMapData.nameEn}
-                    className="max-w-none w-auto max-h-[400px] object-contain rounded-lg filter drop-shadow-xl"
-                  />
-                </div>
-
-                {/* Terrain Overlay Badge */}
-                <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-slate-950/90 border border-slate-800 text-[10px] text-slate-300 font-mono shadow backdrop-blur">
-                  🗺️ תוואי אמיתי v83: {realMapData.nameEn}
-                </div>
-              </div>
-
-              {/* Map Description Summary */}
-              <p className="text-xs text-slate-300 leading-relaxed border-t border-slate-800 pt-2">
-                <strong className="text-amber-400">אופי השטח: </strong>
-                {realMapData.terrainDescHe || 'מפת שטח רשמית עם פלטפורמות, סולמות וריכוז מפלצות אותנטי מעולם מייפל סטורי.'}
-              </p>
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-xs">
+              <button
+                onClick={() => setRenderZoom(prev => Math.max(0.6, prev - 0.2))}
+                className="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-300 font-bold cursor-pointer"
+                title="הקטן זום"
+              >
+                -
+              </button>
+              <span className="font-mono text-[11px] text-cyan-300 px-1 select-none">
+                {Math.round(renderZoom * 100)}%
+              </span>
+              <button
+                onClick={() => setRenderZoom(prev => Math.min(2.5, prev + 0.2))}
+                className="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-300 font-bold cursor-pointer"
+                title="הגדל זום"
+              >
+                +
+              </button>
+              <button
+                onClick={() => setRenderZoom(1)}
+                className="text-[10px] text-slate-400 hover:text-white px-1.5 border-r border-slate-700 mr-1 pr-1.5 font-bold cursor-pointer"
+                title="איפוס ל-100%"
+              >
+                {isEn ? 'Reset' : 'איפוס'}
+              </button>
             </div>
           </div>
 
-          {/* Assassin Battlefield Intel & Tactical Sniping Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-            {/* Safe Spot */}
-            <div className="bg-slate-900/90 p-3.5 rounded-xl border border-purple-500/40 space-y-1.5 shadow-sm">
-              <span className="text-purple-300 font-bold flex items-center gap-1.5 text-xs">
-                <span>🛡️</span>
-                <span>עמדת צלפים מוגנת (Safe Spot):</span>
-              </span>
-              <p className="text-slate-200 text-xs leading-relaxed">
-                {realMapData.snipingSpotHe || 'עמדת יתרון גובה על ענף או מדרגת סלע לזריקת שוריקנים ללא מגע.'}
-              </p>
-            </div>
-
-            {/* Mob Spawn Density */}
-            <div className="bg-slate-900/90 p-3.5 rounded-xl border border-amber-500/40 space-y-1.5 shadow-sm">
-              <span className="text-amber-300 font-bold flex items-center gap-1.5 text-xs">
-                <span>👾</span>
-                <span>צפיפות ספאון מפלצות:</span>
-              </span>
-              <p className="text-slate-200 text-xs leading-relaxed">
-                {realMapData.mobSpawnRate || 'צפיפות מפלצות גבוהה ורציפה.'}
-              </p>
-              <div className="text-[11px] font-mono text-slate-400 pt-1">
-                {realMapData.mobsPresent?.join(' • ')}
+          {/* Panoramic Scrollable Viewport */}
+          <div className="relative rounded-2xl overflow-auto border border-cyan-500/30 bg-slate-950 shadow-inner h-72 sm:h-80 max-h-96 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-950">
+            {renderError || (!renderSrc && !minimapSrc) ? (
+              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center space-y-3">
+                <span className="text-4xl animate-bounce">📡</span>
+                <div>
+                  <h6 className="font-bold text-white text-sm">{realMapData.nameHe || realMapData.nameEn}</h6>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {isEn ? 'Panoramic render image offline • Use 2D Radar Simulation' : 'תצלום השטח שמור במצב רדאר 2D חי — לחץ למטה לפתיחת הסימולציה'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setViewMode('radar')}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                >
+                  {isEn ? 'Open 2D Radar Simulation 📡' : 'פתח סקיצת רדאר 2D חי 📡'}
+                </button>
               </div>
-            </div>
-
-            {/* Terrain & Mobility */}
-            <div className="bg-slate-900/90 p-3.5 rounded-xl border border-sky-500/40 space-y-1.5 shadow-sm">
-              <span className="text-sky-300 font-bold flex items-center gap-1.5 text-xs">
-                <span>🏃</span>
-                <span>תוואי שטח וניידות:</span>
-              </span>
-              <p className="text-slate-200 text-xs leading-relaxed">
-                {realMapData.terrainDescHe}
-              </p>
-            </div>
-
-            {/* Connected Portals */}
-            <div className="bg-slate-900/90 p-3.5 rounded-xl border border-emerald-500/40 space-y-1.5 shadow-sm">
-              <span className="text-emerald-300 font-bold flex items-center gap-1.5 text-xs">
-                <span>🚪</span>
-                <span>מעברים ופורטלים:</span>
-              </span>
-              <div className="space-y-1 text-slate-200 text-xs leading-relaxed">
-                {realMapData.portals && realMapData.portals.length > 0 ? (
-                  realMapData.portals.map((p, i) => (
-                    <div key={i} className="flex items-center gap-1">
-                      <span className="text-emerald-400">•</span>
-                      <span>{p.name}</span>
-                    </div>
-                  ))
-                ) : (
-                  <span>פורטלים מקושרים לערי ויקטוריה ומפות הציד הסמוכות.</span>
-                )}
+            ) : (
+              <div
+                className="w-full flex items-center justify-center p-3 min-h-full transition-transform duration-200"
+                style={{
+                  transform: `scale(${renderZoom})`,
+                  transformOrigin: 'center center'
+                }}
+              >
+                <img
+                  src={renderSrc || minimapSrc}
+                  onError={() => setRenderError(true)}
+                  alt={realMapData.nameEn}
+                  className="max-w-none w-auto max-h-[440px] object-contain rounded-xl filter drop-shadow-2xl select-none"
+                />
               </div>
+            )}
+
+            <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-slate-950/90 border border-slate-800 text-[10px] text-slate-300 font-mono shadow backdrop-blur">
+              🗺️ <bdi>{realMapData.nameEn || realMapData.nameHe}</bdi>
+            </div>
+          </div>
+
+          {/* Terrain Description Summary */}
+          <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <strong className="text-cyan-400 font-bold">{isEn ? 'Terrain Intel: ' : 'אופי השטח: '}</strong>
+              <span>{realMapData.terrainDescHe || 'מפת שטח רשמית עם פלטפורמות, סולמות וריכוז מפלצות אותנטי מעולם מייפל סטורי.'}</span>
+            </div>
+            {realMapData.mapId && (
+              <span className="text-[11px] font-mono text-cyan-300/90 bg-slate-950 px-2.5 py-0.5 rounded-lg border border-slate-800">
+                WZ MapID: {realMapData.mapId}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- MODE 2: OFFICIAL IN-GAME MINIMAP HUD --- */}
+      {viewMode === 'minimap' && (
+        <div className="space-y-3 animate-fade-in">
+          <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 rounded-2xl p-4 border-2 border-emerald-500/40 shadow-xl space-y-3">
+            <div className="flex items-center justify-between border-b border-emerald-500/30 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🍁</span>
+                <div>
+                  <h6 className="text-xs sm:text-sm font-black text-emerald-300 flex items-center gap-1.5">
+                    <span>MiniMap:</span>
+                    <span className="text-white">{realMapData.nameHe}</span>
+                  </h6>
+                  <p className="text-[11px] font-mono text-slate-400">
+                    <bdi>{realMapData.nameEn}</bdi>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPins(!showPins)}
+                className={`text-[10px] font-mono px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+                  showPins
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 font-bold shadow-sm'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+                title="הצג / הסתר נקודות ציון על מפת המינימאפ"
+              >
+                {showPins ? '📌 סימוני מפה: פעיל' : '📌 סימוני מפה: כבוי'}
+              </button>
+            </div>
+
+            {/* Minimap Image with Overlaid Pins */}
+            <div className="relative rounded-xl overflow-hidden border-2 border-slate-800 bg-slate-950/90 flex items-center justify-center p-4 min-h-[200px] shadow-inner group">
+              {minimapError || !minimapSrc ? (
+                <div className="text-slate-400 text-xs font-mono p-6 text-center space-y-2">
+                  <span className="text-2xl block">🍁</span>
+                  <div className="font-bold text-white">{realMapData.nameHe}</div>
+                  <div>מפת ה-MiniMap מוצגת בתצלום הפנורמי וברדאר ה-2D החי</div>
+                </div>
+              ) : (
+                <img
+                  src={minimapSrc}
+                  onError={() => setMinimapError(true)}
+                  alt={realMapData.nameEn}
+                  className="max-h-56 max-w-full object-contain filter contrast-125 select-none drop-shadow-md"
+                />
+              )}
+
+              {/* Interactive Overlaid Pins */}
+              {showPins && !minimapError && minimapSrc && (
+                <>
+                  <button
+                    onClick={() => setActivePin({
+                      title: 'עמדת צלפים מוגנת (Safe Sniping Spot)',
+                      text: realMapData.snipingSpotHe || 'עמדת יתרון גובה לזריקת שוריקנים וחיצים ללא מגע ממפלצות'
+                    })}
+                    className="absolute top-6 left-8 px-2 py-1 rounded-lg bg-purple-950/90 border border-purple-400 text-purple-200 text-[10px] font-bold shadow-lg hover:scale-110 transition flex items-center gap-1 cursor-pointer"
+                    title="לחץ לצפייה בפרטי עמדת הצלפים"
+                  >
+                    <span>🛡️</span>
+                    <span>Safe Spot</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActivePin({
+                      title: 'אזור ספאון מפלצות ראשי',
+                      text: `${realMapData.mobSpawnRate || 'צפיפות מפלצות גבוהה'} • מפלצות: ${realMapData.mobsPresent?.join(', ') || monster?.name}`
+                    })}
+                    className="absolute bottom-6 right-10 px-2 py-1 rounded-lg bg-rose-950/90 border border-rose-400 text-rose-200 text-[10px] font-bold shadow-lg hover:scale-110 transition flex items-center gap-1 cursor-pointer"
+                    title="לחץ לצפייה בפרטי ספאון המפלצות"
+                  >
+                    <span>🔴</span>
+                    <span>Mob Spawn</span>
+                  </button>
+
+                  {realMapData.portals && realMapData.portals.length > 0 && (
+                    <button
+                      onClick={() => setActivePin({
+                        title: 'פורטלי מעבר במפה',
+                        text: realMapData.portals.map(p => `${p.name} -> ${p.toMap}`).join(' • ')
+                      })}
+                      className="absolute bottom-6 left-10 px-2 py-1 rounded-lg bg-cyan-950/90 border border-cyan-400 text-cyan-200 text-[10px] font-bold shadow-lg hover:scale-110 transition flex items-center gap-1 cursor-pointer"
+                      title="לחץ לצפייה בפורטלים"
+                    >
+                      <span>🚪</span>
+                      <span>Portal</span>
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Active Pin Callout Details */}
+            {activePin && (
+              <div className="bg-slate-900/95 p-3 rounded-xl border border-cyan-400/50 text-xs text-slate-200 space-y-1.5 shadow-lg animate-fade-in">
+                <div className="flex items-center justify-between text-cyan-300 font-bold">
+                  <span>📍 {activePin.title}</span>
+                  <button
+                    onClick={() => setActivePin(null)}
+                    className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded hover:bg-slate-800"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  {activePin.text}
+                </p>
+              </div>
+            )}
+
+            {/* MiniMap Footer Data */}
+            <div className="flex items-center justify-between text-[11px] text-slate-300 border-t border-slate-800 pt-2 font-mono flex-wrap gap-2">
+              <span>עיר: <strong className="text-white">{realMapData.townHe || realMapData.town}</strong></span>
+              <span>מחוז: <strong className="text-cyan-400">{realMapData.streetName || 'Victoria Island'}</strong></span>
+              {realMapData.mapId && <span>WZ: <strong className="text-emerald-400">{realMapData.mapId}</strong></span>}
             </div>
           </div>
         </div>
-      ) : (
-        /* --- 2D CANVAS RADAR SIMULATION MODE --- */
-        <div className="space-y-3.5">
+      )}
+
+      {/* --- MODE 3: 2D CANVAS RADAR SIMULATION --- */}
+      {viewMode === 'radar' && (
+        <div className="space-y-3.5 animate-fade-in">
           {/* Canvas Viewport */}
-          <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner group">
+          <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner group">
             <canvas
               ref={canvasRef}
               width={canvasWidth}
@@ -1980,10 +1998,10 @@ export default function InteractiveMapRadar({
 
           {/* Standalone Preset Switcher (When no monster is selected) */}
           {!monster && (
-            <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10 text-xs overflow-x-auto">
+            <div className="flex items-center gap-1 bg-slate-900/90 p-1.5 rounded-xl border border-white/10 text-xs overflow-x-auto">
               <button
                 onClick={() => setActiveMapKey('pigBeach')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap ${
+                className={`px-3 py-1 rounded-lg font-bold transition whitespace-nowrap ${
                   activeMapKey === 'pigBeach' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -1991,7 +2009,7 @@ export default function InteractiveMapRadar({
               </button>
               <button
                 onClick={() => setActiveMapKey('blueMushroom')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap ${
+                className={`px-3 py-1 rounded-lg font-bold transition whitespace-nowrap ${
                   activeMapKey === 'blueMushroom' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -1999,7 +2017,7 @@ export default function InteractiveMapRadar({
               </button>
               <button
                 onClick={() => setActiveMapKey('hhg1')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap ${
+                className={`px-3 py-1 rounded-lg font-bold transition whitespace-nowrap ${
                   activeMapKey === 'hhg1' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -2007,7 +2025,7 @@ export default function InteractiveMapRadar({
               </button>
               <button
                 onClick={() => setActiveMapKey('subway')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap ${
+                className={`px-3 py-1 rounded-lg font-bold transition whitespace-nowrap ${
                   activeMapKey === 'subway' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -2015,7 +2033,7 @@ export default function InteractiveMapRadar({
               </button>
               <button
                 onClick={() => setActiveMapKey('antTunnel')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap ${
+                className={`px-3 py-1 rounded-lg font-bold transition whitespace-nowrap ${
                   activeMapKey === 'antTunnel' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -2029,7 +2047,7 @@ export default function InteractiveMapRadar({
             <div className="flex items-center gap-2 bg-slate-900/70 px-3 py-2 rounded-xl border border-slate-800 shadow-sm">
               <span className={`w-3 h-3 rounded-full ${realMapData.bgTheme === 'desert' ? 'bg-amber-500' : 'bg-emerald-400'} shrink-0 shadow-sm`}></span>
               <span className="truncate font-medium">
-                {realMapData.bgTheme === 'desert' ? (isEn ? 'Desert Dunes & Sandstone' : 'דיונות ואבן חול מדברית') : (isEn ? 'Platforms & Ground' : 'פלטפורמות עץ וקרקע')}
+                {realMapData.bgTheme === 'desert' ? (isEn ? 'Desert Dunes & Sandstone' : 'דיונות ואבן חול') : (isEn ? 'Platforms & Ground' : 'פלטפורמות עץ וקרקע')}
               </span>
             </div>
             
@@ -2040,7 +2058,7 @@ export default function InteractiveMapRadar({
             
             <div className="flex items-center gap-2 bg-slate-900/70 px-3 py-2 rounded-xl border border-purple-500/40 shadow-sm">
               <span className="w-3 h-3 rounded-full bg-purple-400 shrink-0 shadow-sm"></span>
-              <span className="text-purple-200 font-medium truncate">{isEn ? 'Safe Perch for Thief/Bowman' : 'עמדה בטוחה לגנב'}</span>
+              <span className="text-purple-200 font-medium truncate">{isEn ? 'Safe Perch' : 'עמדת צלפים מוגנת'}</span>
             </div>
             
             <div className="flex items-center justify-between bg-slate-900/70 px-3 py-2 rounded-xl border border-cyan-500/40 shadow-sm">
@@ -2055,6 +2073,65 @@ export default function InteractiveMapRadar({
           </div>
         </div>
       )}
+
+      {/* --- TACTICAL BATTLEFIELD INTEL CARDS (Spacious 2-column grid, always visible) --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+        {/* Safe Spot */}
+        <div className="bg-slate-900/90 p-3.5 rounded-2xl border border-purple-500/40 space-y-1.5 shadow-sm">
+          <span className="text-purple-300 font-bold flex items-center gap-1.5 text-xs">
+            <span>🛡️</span>
+            <span>עמדת צלפים מוגנת (Safe Spot):</span>
+          </span>
+          <p className="text-slate-200 text-xs leading-relaxed">
+            {realMapData.snipingSpotHe || 'עמדת יתרון גובה על ענף או מדרגת סלע לזריקת שוריקנים ללא מגע.'}
+          </p>
+        </div>
+
+        {/* Mob Spawn Density */}
+        <div className="bg-slate-900/90 p-3.5 rounded-2xl border border-amber-500/40 space-y-1.5 shadow-sm">
+          <span className="text-amber-300 font-bold flex items-center gap-1.5 text-xs">
+            <span>👾</span>
+            <span>צפיפות ספאון מפלצות:</span>
+          </span>
+          <p className="text-slate-200 text-xs leading-relaxed">
+            {realMapData.mobSpawnRate || 'צפיפות מפלצות גבוהה ורציפה.'}
+          </p>
+          <div className="text-[11px] font-mono text-slate-400 pt-1">
+            {realMapData.mobsPresent?.join(' • ')}
+          </div>
+        </div>
+
+        {/* Terrain & Mobility */}
+        <div className="bg-slate-900/90 p-3.5 rounded-2xl border border-sky-500/40 space-y-1.5 shadow-sm">
+          <span className="text-sky-300 font-bold flex items-center gap-1.5 text-xs">
+            <span>🏃</span>
+            <span>תוואי שטח וניידות:</span>
+          </span>
+          <p className="text-slate-200 text-xs leading-relaxed">
+            {realMapData.terrainDescHe || 'מפת שטח רשמית עם פלטפורמות וסולמות.'}
+          </p>
+        </div>
+
+        {/* Connected Portals */}
+        <div className="bg-slate-900/90 p-3.5 rounded-2xl border border-emerald-500/40 space-y-1.5 shadow-sm">
+          <span className="text-emerald-300 font-bold flex items-center gap-1.5 text-xs">
+            <span>🚪</span>
+            <span>מעברים ופורטלים מקושרים:</span>
+          </span>
+          <div className="space-y-1 text-slate-200 text-xs leading-relaxed">
+            {realMapData.portals && realMapData.portals.length > 0 ? (
+              realMapData.portals.map((p, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <span className="text-emerald-400">•</span>
+                  <span>{p.name}</span>
+                </div>
+              ))
+            ) : (
+              <span>פורטלים מקושרים לערי ויקטוריה ומפות הציד הסמוכות.</span>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Live In-Game Hidden Portal Viewer Modal */}
       {showPortalModal && (

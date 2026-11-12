@@ -5,10 +5,10 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
-    minWidth: 960,
-    minHeight: 680,
+    width: 1440,
+    height: 940,
+    minWidth: 1080,
+    minHeight: 720,
     backgroundColor: '#0c1222',
     icon: path.join(__dirname, 'build', 'icon.ico'),
     show: false, // Don't show until ready-to-show to prevent white flash
@@ -27,6 +27,13 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+  });
+
+  // Handle hardware mouse Back button (XBUTTON1 / browser-backward)
+  mainWindow.on('app-command', (e, cmd) => {
+    if (cmd === 'browser-backward') {
+      mainWindow.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent('maple-mouse-back'))`).catch(() => {});
+    }
   });
 
   // Handle external links safely

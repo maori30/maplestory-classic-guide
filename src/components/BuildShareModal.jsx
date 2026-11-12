@@ -18,7 +18,8 @@ const DEFAULT_PRESETS = [
     secondaryName: 'DEX',
     secondaryTarget: 25,
     primaryName: 'LUK',
-    note: 'נזק מתפרץ מקסימלי עם Meba מהירה (Speed 3) וכוכבי סטילי/טובי'
+    note: 'נזק מתפרץ מקסימלי עם Meba מהירה (Speed 3) וכוכבי סטילי/טובי',
+    noteEn: 'Maximum burst damage with Faster (3) Meba and Steely/Tobi stars'
   },
   {
     id: 'preset-cleric-35',
@@ -32,7 +33,8 @@ const DEFAULT_PRESETS = [
     secondaryName: 'LUK',
     secondaryTarget: 4,
     primaryName: 'INT',
-    note: 'בניית Pure INT לחריכת זומבים ו-Heal Bombing קטלני בלודי PQ'
+    note: 'בניית Pure INT לחריכת זומבים ו-Heal Bombing קטלני בלודי PQ',
+    noteEn: 'Pure INT build for zombie grinding and deadly Heal Bombing in LPQ'
   },
   {
     id: 'preset-spearman-50',
@@ -46,7 +48,8 @@ const DEFAULT_PRESETS = [
     secondaryName: 'DEX',
     secondaryTarget: 80,
     primaryName: 'STR',
-    note: 'ספירמן קלאסי עם נשק מוט Biter, דיוק גבוה ועוצמת Hyper Body לפארטי'
+    note: 'ספירמן קלאסי עם נשק מוט Biter, דיוק גבוה ועוצמת Hyper Body לפארטי',
+    noteEn: 'Classic Spearman with Biter polearm, high accuracy and party Hyper Body'
   }
 ];
 
@@ -188,7 +191,8 @@ export default function BuildShareModal({
       secondaryName: apDetails?.secondaryName || 'DEX',
       secondaryTarget: apDetails?.secondaryVal || 25,
       primaryName: apDetails?.primaryName || 'LUK',
-      note: isEn ? `Saved at Lv. ${currentLevel}` : `נשמר ברמה ${currentLevel}`
+      note: isEn ? `Saved build for Lv. ${currentLevel}` : `נשמר ברמה ${currentLevel}`,
+      noteEn: `Saved build for Lv. ${currentLevel}`
     };
 
     setPresets(prev => [newPreset, ...prev]);
@@ -532,7 +536,7 @@ export default function BuildShareModal({
                             </span>
                           </div>
                           <div className="text-[11px] text-slate-300 mt-0.5">
-                            {isEn ? (preset.jobName || job?.name) : (preset.jobNameHe || job?.nameHe)} • {preset.secondaryName}: {preset.secondaryTarget} {preset.note ? `• ${preset.note}` : ''}
+                            {isEn ? (preset.jobName || job?.name) : (preset.jobNameHe || job?.nameHe)} • {preset.secondaryName}: {preset.secondaryTarget} {(isEn ? (preset.noteEn || preset.note) : (preset.note || preset.noteEn)) ? `• ${isEn ? (preset.noteEn || preset.note) : (preset.note || preset.noteEn)}` : ''}
                           </div>
                         </div>
                       </div>

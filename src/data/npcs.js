@@ -1,6 +1,8 @@
+import { NPC_ASSETS_MAP } from './npcAssets.js';
+
 // MapleStory Pre-BigBang NPCs Database (Locations, Travel Directions & Services)
 // Total NPCs: 143 (Comprehensive Pre-BigBang Victoria Island, Ossyria, Ludibrium & Deep Dungeons)
-export const NPCS_DATABASE = [
+const RAW_NPCS_DATABASE = [
   {
     "id": "dark-lord",
     "name": "Dark Lord",
@@ -4134,3 +4136,13 @@ export const NPCS_DATABASE = [
     ]
   }
 ];
+
+export const NPCS_DATABASE = RAW_NPCS_DATABASE.map(npc => {
+  const asset = NPC_ASSETS_MAP[npc.id] || {};
+  return {
+    ...npc,
+    npcId: npc.npcId || asset.npcId,
+    iconUrl: npc.iconUrl || asset.iconUrl,
+    renderUrl: npc.renderUrl || asset.renderUrl,
+  };
+});

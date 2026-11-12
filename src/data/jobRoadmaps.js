@@ -316,18 +316,32 @@ export function getJobRoadmap(jobId) {
       ? `ברכות! הגעת למעבר עבודה שנייה כ-${job.job2Name}!`
       : `התקדמות רמה ${lvl}`;
 
+    const tipTitleEn = lvl === 10
+      ? `1st Job Advancement at Lv. 10 (${job.name})`
+      : lvl === 30
+      ? `2nd Job Advancement Milestone (${job.job2Name?.replace(/\s*\(.*?\)/, '') || job.name})`
+      : `Level ${lvl} Progress`;
+
     const tipDesc = lvl === 10
       ? `התחלת את דרכך בעיר ${job.town}. שים נקודת SP ראשונה והתחל באימונים!`
       : lvl === 30
       ? `גש למדריך העבודה ${job.instructor1} כדי לקבל את מכתב המבחן לעבודה השנייה!`
       : `שפר את הכישורים: ${addedSkills.map(s => `${skillsInfo[s.skillId]?.nameHe || s.skillId} (+${s.points})`).join(', ')}`;
 
+    const tipDescEn = lvl === 10
+      ? `Began adventure in ${job.town?.replace(/\s*\(.*?\)/, '')}. Place 1st SP and start training!`
+      : lvl === 30
+      ? `Visit Job Instructor ${job.instructor1?.replace(/\s*\(.*?\)/, '')} for the 2nd Job Advancement test!`
+      : `Upgrade: ${addedSkills.map(s => `${skillsInfo[s.skillId]?.nameEn || s.skillId} (+${s.points})`).join(', ')}`;
+
     roadmap[lvl.toString()] = {
       spGained: spThisLvl,
       addedSkills,
       cumulative: { ...currentSkills },
       tipTitle,
-      tipDesc
+      tipTitleEn,
+      tipDesc,
+      tipDescEn
     };
   }
 

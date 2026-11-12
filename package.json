@@ -2,6 +2,9 @@
   "name": "maplestory-classic-guide",
   "productName": "מדריך מייפל סטורי קלאסי",
   "version": "1.0.0",
+  "description": "Offline companion guide for classic MapleStory",
+  "author": "maori30",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "repository": {

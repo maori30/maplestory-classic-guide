@@ -1,5 +1,5 @@
 import { useLanguage } from '../context/LanguageContext.jsx';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ARCHETYPES, CLASSES_DATA } from '../data/classesData.js';
 import { MAPLE_ICON } from '../assets/mapleIcon.js';
 
@@ -17,6 +17,52 @@ export default function ClassSelectorModal({
 
   const [previewJobId, setPreviewJobId] = useState(currentJobId || 'assassin');
   const [selectedBuild, setSelectedBuild] = useState(currentBuild || 'dexless');
+
+  // Support closing via hardware mouse Back button (Button 3 / XBUTTON1), Escape key, and IPC event
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let lastTrigger = 0;
+    const triggerClose = () => {
+      const now = Date.now();
+      if (now - lastTrigger < 250) return;
+      lastTrigger = now;
+      if (onClose) onClose();
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        triggerClose();
+      }
+    };
+
+    const handleMouseUp = (e) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerClose();
+      }
+    };
+
+    const handleCustomBack = (e) => {
+      e?.preventDefault?.();
+      triggerClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mouseup', handleMouseUp, true);
+    window.addEventListener('auxclick', handleMouseUp, true);
+    window.addEventListener('pointerup', handleMouseUp, true);
+    window.addEventListener('maple-mouse-back', handleCustomBack);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mouseup', handleMouseUp, true);
+      window.removeEventListener('auxclick', handleMouseUp, true);
+      window.removeEventListener('pointerup', handleMouseUp, true);
+      window.removeEventListener('maple-mouse-back', handleCustomBack);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -155,13 +201,13 @@ export default function ClassSelectorModal({
                 </span>
                 <div>
                   <h3 className="text-lg font-black text-white">{langMode === 'en' ? previewJob.name : previewJob.nameHe}</h3>
-                  <p className="text-xs text-slate-300">{previewJob.tagline}</p>
+                  <p className="text-xs text-slate-300">{langMode === 'en' ? (previewJob.taglineEn || previewJob.tagline) : previewJob.tagline}</p>
                 </div>
               </div>
 
               <div className="text-right text-xs">
                 <div className="text-slate-400">{langMode === 'en' ? 'Origin Town:' : 'עיר מוצא:'}</div>
-                <div className="font-bold text-cyan-300">{previewJob.town}</div>
+                <div className="font-bold text-cyan-300">{langMode === 'en' ? previewJob.town.replace(/\s*\(.*?\)/, '') : previewJob.town}</div>
               </div>
             </div>
 
@@ -170,11 +216,13 @@ export default function ClassSelectorModal({
               <div className="liquid-glass-pill p-3 rounded-2xl border border-white/10">
                 <span className="text-slate-300 block text-[10px] font-medium">{langMode === 'en' ? 'Primary / Secondary Stat:' : 'סטט ראשי / משני:'}</span>
                 <span className="font-black text-amber-300 font-mono text-sm">{previewJob.primaryStat}</span>
-                <span className="text-slate-300 text-[11px]"> (משני: {previewJob.secondaryStat})</span>
+                <span className="text-slate-300 text-[11px] font-sans"> ({langMode === 'en' ? 'Secondary:' : 'משני:'} {previewJob.secondaryStat})</span>
               </div>
               <div className="liquid-glass-pill p-3 rounded-2xl border border-white/10">
                 <span className="text-slate-300 block text-[10px] font-medium">{langMode === 'en' ? 'Primary Weapons:' : 'כלי נשק ראשיים:'}</span>
-                <span className="font-black text-emerald-300 text-sm">{previewJob.weapons.join(', ')}</span>
+                <span className="font-black text-emerald-300 text-sm">
+                  {previewJob.weapons.map(w => langMode === 'en' ? w.replace(/\s*\(.*?\)/, '') : w).join(', ')}
+                </span>
               </div>
             </div>
 
@@ -205,8 +253,12 @@ export default function ClassSelectorModal({
                         className="mt-0.5 text-amber-400 focus:ring-0 cursor-pointer"
                       />
                       <div>
-                        <div className="font-black text-white text-xs">{variant.nameHe}</div>
-                        <div className="text-slate-200 text-[11px] mt-0.5 leading-relaxed">{variant.desc}</div>
+                        <div className="font-black text-white text-xs">
+                          {langMode === 'en' ? variant.name : variant.nameHe}
+                        </div>
+                        <div className="text-slate-200 text-[11px] mt-0.5 leading-relaxed">
+                          {langMode === 'en' ? (variant.descEn || variant.desc) : variant.desc}
+                        </div>
                       </div>
                     </div>
                   );
@@ -235,7 +287,7 @@ export default function ClassSelectorModal({
         {/* Footer Actions */}
         <div className="p-4 border-t border-white/10 flex items-center justify-between bg-slate-900/60">
           <div className="text-xs text-slate-300">
-            {langMode === 'en' ? 'Selected:' : 'נבחר:'} <span className="text-white font-black">{langMode === 'en' ? previewJob.name : previewJob.nameHe}</span> ({previewJob.buildVariants.find(b => b.id === selectedBuild)?.name})
+            {langMode === 'en' ? 'Selected:' : 'נבחר:'} <span className="text-white font-black">{langMode === 'en' ? previewJob.name : previewJob.nameHe}</span> ({langMode === 'en' ? previewJob.buildVariants.find(b => b.id === selectedBuild)?.name : previewJob.buildVariants.find(b => b.id === selectedBuild)?.nameHe})
           </div>
 
           <div className="flex items-center gap-2.5">

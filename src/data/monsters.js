@@ -2863,14 +2863,17 @@ const RAW_MONSTERS_DATABASE = [
     "exp": 180,
     "icon": "🐌",
     "category": "bosses",
-    "town": "Lith Harbor",
+    "town": "Lith Harbor (פאתי ליט הארבור)",
     "locations": [
-      "Thicket Around Beach III (חוף ליט הארבור)"
+      "Victoria Road: Thicket Around the Beach III (פאתי ליט הארבור - סבך סביב החוף 3)"
     ],
     "directions": [
-      "מליט הארבור (Lith Harbor): צא מהפורטל השמאלי לכיוון החופים ועבור עד Thicket Around Beach III."
+      "1. מליט הארבור (Lith Harbor): צא דרך הפורטל הימני ביותר (מזרחה) אל מפת Right Around Lith Harbor (מפה 104000100).",
+      "2. רד ימינה לפלטפורמת הדשא הנמוכה והיכנס לפורטל החוף המוביל אל Thicket Around the Beach I (מפה 104000200).",
+      "3. חצה את המפה ימינה והיכנס לפורטל אל Thicket Around the Beach II (מפה 104000300).",
+      "4. המשך שוב ימינה דרך הפורטל אל Thicket Around the Beach III (מפה 104000400). כאן מופיע הבוס מאנו (Mano) בפלטפורמת הדשא המרכזית לצד חלזונות כחולים ואדומים!"
     ],
-    "safeSpots": "עמוד על גבי הסלעים שלאורך החוף ותקוף מטווח בטוח. היזהר מהחלזונות הקטנים שהוא מזמן.",
+    "safeSpots": "עמוד על מדף הסלעים העליון משמאל ותקוף מטווח בטוח. נקה את החלזונות הקטנים שהוא מזמן.",
     "notableDrops": [
       "Rainbow Colored Snail Shell (שריון קשת לקווסט)",
       "Scroll for Gloves for HP 10%"

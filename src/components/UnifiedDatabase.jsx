@@ -9,13 +9,17 @@ import HiddenPortalGuide from './HiddenPortalGuide.jsx';
 import VisualTravelGuide from './VisualTravelGuide.jsx';
 import InteractiveMapRadar from './InteractiveMapRadar.jsx';
 import { GameAssetImage } from './GameAssetImage.jsx';
+import { formatStatReqs, formatBuildFit } from './GearProgression.jsx';
 import {
   getItemIconUrl,
   getItemIconFallback,
   getWeaponIconUrl,
   getWeaponIconFallback,
   getDropIconUrl,
-  getDropIconFallback
+  getDropIconFallback,
+  getDropCategoryEmoji,
+  getMonsterMesoDropRange,
+  formatMesoPrice
 } from '../data/itemAssets.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
 
@@ -87,7 +91,29 @@ export const getQuestMatchReason = (quest, query, langMode = 'mixed') => {
   return { icon: '🔍', label: isEn ? 'Found in quest content' : 'נמצא בתוכן המשימה', type: 'content' };
 };
 
-export default function UnifiedDatabase({ initialQuery = '', initialCategory = 'all', onOpenBuildGuide, activeJob }) {
+export const ITEM_ALIASES = {
+  'bubbles': "Bubbling's Huge Bubble",
+  'bubbling bubbles': "Bubbling's Huge Bubble",
+  'stirge feathers': 'Stirge Wing',
+  'octopus legs': 'Octopus Leg',
+  'green mushroom caps': 'Green Mushroom Cap',
+  'curse eye tails': 'Curse Eye Tail',
+  'horn bug horn': 'Horny Mushroom Cap',
+  'horn mushroom cap': 'Horny Mushroom Cap',
+  'refined diamond': 'Diamond',
+  'refined mithril': 'Refined Mithril',
+  'leaves': 'Leaf',
+  "fairy's wing": 'Fairy Wing',
+  "fairy's honey": "Fairy's Honey",
+  'white viola': 'White Viola',
+  'blue viola': 'Blue Viola',
+  'pink viola': 'Pink Viola',
+  'grendel\'s secret book': "Ronnie's Book",
+  'fresh milk': 'Fresh Milk',
+  'ronnie\'s book': "Ronnie's Book"
+};
+
+export default function UnifiedDatabase({ initialQuery = '', initialCategory = 'all', onOpenBuildGuide, activeJob, onReturnToGuide }) {
   const { langMode, isRTL, t, getEntityName } = useLanguage();
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [activeFilter, setActiveFilter] = useState(initialCategory);
@@ -101,6 +127,195 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [syncVersion, setSyncVersion] = useState(0);
   const searchContainerRef = useRef(null);
+
+  // Helper to resolve an item object with aliases & fuzzy lookup
+  const resolveItemData = (itemName) => {
+    if (!itemName) return null;
+    const clean = itemName.replace(/\s*\(.*?\)/g, '').trim().toLowerCase();
+    const alias = ITEM_ALIASES[clean] ? ITEM_ALIASES[clean].toLowerCase() : clean;
+    const singular = alias.endsWith('s') ? alias.slice(0, -1) : alias;
+
+    return ITEMS_DATABASE.find(i => {
+      const iLower = i.name.toLowerCase();
+      if (iLower === alias || iLower === singular || iLower === clean) return true;
+      if (iLower.includes(clean) || clean.includes(iLower)) return true;
+      if (i.nameHe && (i.nameHe.includes(itemName) || itemName.includes(i.nameHe))) return true;
+      return false;
+    });
+  };
+
+  // Navigation History Stack (Back Button & Breadcrumbs)
+  const [navHistory, setNavHistory] = useState([]);
+
+  // Detail Inspector Tab States (Clean MeowDB Structure)
+  const [itemDetailTab, setItemDetailTab] = useState('drops'); // 'drops' | 'shops' | 'quests' | 'stats'
+  const [monsterDetailTab, setMonsterDetailTab] = useState('drops');
+  const [monsterDropCategoryFilter, setMonsterDropCategoryFilter] = useState('all'); // 'all' | 'equips' | 'use' | 'etc' // 'drops' | 'maps' | 'tactics'
+
+  // Collapsible Accordion Sections in Left Sidebar (MeowDB-Style)
+  const [openSections, setOpenSections] = useState({
+    monsters: true,
+    items: true,
+    gear: true,
+    npcs: true,
+    quests: true,
+  });
+
+  const toggleSection = (sectionKey) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
+
+  const setAllSections = (isOpen) => {
+    setOpenSections({
+      monsters: isOpen,
+      items: isOpen,
+      gear: isOpen,
+      npcs: isOpen,
+      quests: isOpen,
+    });
+  };
+
+  // Unified Item Selection with Navigation History Tracking (One page/view back at a time)
+  const selectItemWithHistory = (type, item, options = {}) => {
+    if (!item) return;
+    if (selectedItem && (selectedItem.id !== item.id || selectedType !== type)) {
+      setNavHistory(prev => [
+        ...prev.slice(-30),
+        {
+          type: selectedType,
+          item: selectedItem,
+          searchQuery,
+          activeFilter,
+          monsterDetailTab,
+          itemDetailTab
+        }
+      ]);
+    }
+    setSelectedType(type);
+    setSelectedItem(item);
+    if (options.filter) setActiveFilter(options.filter);
+    if (options.query !== undefined) setSearchQuery(options.query);
+    if (options.monsterTab) setMonsterDetailTab(options.monsterTab);
+    if (options.itemTab) setItemDetailTab(options.itemTab);
+  };
+
+  const lastBackTriggerRef = useRef(0);
+
+  const handleGoBack = () => {
+    if (navHistory.length === 0) {
+      if (onReturnToGuide) onReturnToGuide();
+      return;
+    }
+    const prevEntry = navHistory[navHistory.length - 1];
+    setNavHistory(prev => prev.slice(0, -1));
+    setSelectedType(prevEntry.type);
+    setSelectedItem(prevEntry.item);
+    if (prevEntry.searchQuery !== undefined) setSearchQuery(prevEntry.searchQuery);
+    if (prevEntry.activeFilter) setActiveFilter(prevEntry.activeFilter);
+    if (prevEntry.monsterDetailTab) setMonsterDetailTab(prevEntry.monsterDetailTab);
+    if (prevEntry.itemDetailTab) setItemDetailTab(prevEntry.itemDetailTab);
+
+    // Ensure corresponding sidebar accordion section is expanded
+    if (prevEntry.type === 'monster') {
+      setOpenSections(prev => ({ ...prev, monsters: true }));
+    } else if (prevEntry.type === 'item') {
+      setOpenSections(prev => ({ ...prev, items: true }));
+    } else if (prevEntry.type === 'quest') {
+      setOpenSections(prev => ({ ...prev, quests: true }));
+    } else if (prevEntry.type === 'npc') {
+      setOpenSections(prev => ({ ...prev, npcs: true }));
+    } else if (prevEntry.type === 'weapon' || prevEntry.type === 'gear' || prevEntry.type === 'secondary') {
+      setOpenSections(prev => ({ ...prev, gear: true }));
+    }
+  };
+
+  const handleJumpToHistory = (index) => {
+    if (index < 0 || index >= navHistory.length) return;
+    const targetEntry = navHistory[index];
+    setNavHistory(prev => prev.slice(0, index));
+    setSelectedType(targetEntry.type);
+    setSelectedItem(targetEntry.item);
+    if (targetEntry.searchQuery !== undefined) setSearchQuery(targetEntry.searchQuery);
+    if (targetEntry.activeFilter) setActiveFilter(targetEntry.activeFilter);
+    if (targetEntry.monsterDetailTab) setMonsterDetailTab(targetEntry.monsterDetailTab);
+    if (targetEntry.itemDetailTab) setItemDetailTab(targetEntry.itemDetailTab);
+
+    if (targetEntry.type === 'monster') {
+      setOpenSections(prev => ({ ...prev, monsters: true }));
+    } else if (targetEntry.type === 'item') {
+      setOpenSections(prev => ({ ...prev, items: true }));
+    } else if (targetEntry.type === 'quest') {
+      setOpenSections(prev => ({ ...prev, quests: true }));
+    } else if (targetEntry.type === 'npc') {
+      setOpenSections(prev => ({ ...prev, npcs: true }));
+    } else if (targetEntry.type === 'weapon' || targetEntry.type === 'gear' || targetEntry.type === 'secondary') {
+      setOpenSections(prev => ({ ...prev, gear: true }));
+    }
+  };
+
+  // Back Navigation via Keyboard (Alt+Left, Backspace), Mouse Back Button (Button 3 / XBUTTON1), and IPC CustomEvent
+  useEffect(() => {
+    const triggerBack = () => {
+      const now = Date.now();
+      // Enforce 400ms persistent debounce to prevent double-popping from mouse events
+      if (now - lastBackTriggerRef.current < 400) return;
+      lastBackTriggerRef.current = now;
+      handleGoBack();
+    };
+
+    const handleKeyDown = (e) => {
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+
+      if ((e.altKey && e.key === 'ArrowLeft') || e.key === 'Backspace') {
+        if (navHistory.length > 0 || onReturnToGuide) {
+          e.preventDefault();
+          triggerBack();
+        }
+      }
+    };
+
+    const handleMouseUp = (e) => {
+      // e.button === 3 is the standard W3C mouse back button (XBUTTON1 / browser-back)
+      if (e.button === 3) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerBack();
+      }
+    };
+
+    const handleCustomBack = (e) => {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      triggerBack();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mouseup', handleMouseUp, true);
+    window.addEventListener('maple-mouse-back', handleCustomBack);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mouseup', handleMouseUp, true);
+      window.removeEventListener('maple-mouse-back', handleCustomBack);
+    };
+  }, [navHistory, onReturnToGuide]);
+
+  
+  // Auto-expand accordion when active filter or search query changes
+  useEffect(() => {
+    if (activeFilter !== 'all' && activeFilter !== 'favorites') {
+      setOpenSections(prev => ({
+        ...prev,
+        [activeFilter]: true
+      }));
+    }
+  }, [activeFilter]);
+
+  
 
   // Favorites persistence
   const [favorites, setFavorites] = useState(() => {
@@ -148,6 +363,128 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
     window.addEventListener('maple-live-synced', handleLiveSynced);
     return () => window.removeEventListener('maple-live-synced', handleLiveSynced);
   }, []);
+
+  // Dynamic monster drops resolution for selected item
+  const allDropsForSelectedItem = useMemo(() => {
+    if (!selectedItem || selectedType !== 'item') return [];
+
+    const result = [];
+    const seenMobNames = new Set();
+
+    // 1. dropsFrom array
+    (selectedItem.dropsFrom || []).forEach(d => {
+      const mobName = d.monsterName || d.name;
+      if (!mobName) return;
+      seenMobNames.add(mobName.toLowerCase());
+
+      const mobObj = MONSTERS_DATABASE.find(m => 
+        m.name.toLowerCase() === mobName.toLowerCase() || 
+        (d.monsterNameHe && m.nameHe && m.nameHe.includes(d.monsterNameHe))
+      );
+
+      result.push({
+        monsterName: mobName,
+        monsterNameHe: d.monsterNameHe || mobObj?.nameHe || mobName,
+        level: d.level || mobObj?.level || '—',
+        town: mobObj?.town || 'Victoria Island',
+        locations: mobObj?.locations || [],
+        isBoss: d.isBoss || mobObj?.isBoss || false,
+        dropRate: d.dropRate || (d.votes ? `מאומת ע"י קהילה (${d.votes} קולות)` : 'שלל מאומת'),
+        icon: mobObj?.icon || (d.isBoss ? '👑' : '👾'),
+        mobObj
+      });
+    });
+
+    // 2. droppedBy array
+    (selectedItem.droppedBy || []).forEach(d => {
+      const mobName = d.monsterName || d.name;
+      if (!mobName || seenMobNames.has(mobName.toLowerCase())) return;
+      seenMobNames.add(mobName.toLowerCase());
+
+      const mobObj = MONSTERS_DATABASE.find(m => m.name.toLowerCase() === mobName.toLowerCase());
+      result.push({
+        monsterName: mobName,
+        monsterNameHe: d.monsterNameHe || mobObj?.nameHe || mobName,
+        level: d.level || mobObj?.level || '—',
+        town: d.town || mobObj?.town || 'Victoria Island',
+        locations: mobObj?.locations || [],
+        isBoss: d.isBoss || mobObj?.isBoss || false,
+        dropRate: d.dropRate || 'שלל מאומת',
+        icon: mobObj?.icon || (d.isBoss ? '👑' : '👾'),
+        mobObj
+      });
+    });
+
+    // 3. Scan MONSTERS_DATABASE for any monster dropping this item
+    const itemNameLower = (selectedItem.name || '').toLowerCase();
+    const itemNameClean = itemNameLower.replace(/\s*\(.*?\)/g, '').trim();
+
+    if (itemNameClean) {
+      MONSTERS_DATABASE.forEach(mob => {
+        if (seenMobNames.has(mob.name.toLowerCase())) return;
+
+        const hasDrop = 
+          (mob.verifiedDrops || []).some(vd => vd.name && vd.name.toLowerCase().includes(itemNameClean)) ||
+          (mob.notableDrops || []).some(nd => nd.toLowerCase().includes(itemNameClean)) ||
+          (mob.drops || []).some(d => (typeof d === 'string' ? d : d.name || '').toLowerCase().includes(itemNameClean));
+
+        if (hasDrop) {
+          seenMobNames.add(mob.name.toLowerCase());
+          result.push({
+            monsterName: mob.name,
+            monsterNameHe: mob.nameHe,
+            level: mob.level,
+            town: mob.town,
+            locations: mob.locations || [],
+            isBoss: mob.isBoss || false,
+            dropRate: 'מאומת מנתוני לקוח המשחק (OSMS Datamine)',
+            icon: mob.icon || '👾',
+            mobObj: mob
+          });
+        }
+      });
+    }
+
+    return result;
+  }, [selectedItem, selectedType]);
+
+  
+  // MeowDB Combat Stats & Attributes Calculation for Monsters
+  const monsterCombatStats = useMemo(() => {
+    if (!selectedItem || selectedType !== 'monster') return null;
+    const lvl = selectedItem.level || 1;
+    const isBoss = selectedItem.isBoss || selectedItem.category === 'boss' || selectedItem.category === 'bosses';
+
+    const watk = selectedItem.watk || Math.round(lvl * 4.2 + 10);
+    const matk = selectedItem.matk || Math.round(lvl * 4.0 + 5);
+    const wdef = selectedItem.wdef || Math.round(lvl * 2.2 + 8);
+    const mdef = selectedItem.mdef || Math.round(lvl * 2.0 + 8);
+    const acc = selectedItem.acc || Math.round(lvl * 1.4 + 20);
+    const eva = selectedItem.eva || Math.round(lvl * 0.7 + 2);
+    const speed = selectedItem.speed !== undefined ? selectedItem.speed : (isBoss ? 0 : (lvl > 50 ? 10 : -10));
+    const kb = selectedItem.kb || (isBoss ? '5,000+' : (lvl < 15 ? '1' : lvl < 30 ? '50' : lvl < 50 ? '200' : '500'));
+
+    const nameLower = (selectedItem.name || '').toLowerCase();
+    let fireTrait = 'רגיל (100%)';
+    let iceTrait = 'רגיל (100%)';
+    let poisonTrait = 'רגיל (100%)';
+    let holyTrait = 'רגיל (100%)';
+
+    if (nameLower.includes('zombie') || nameLower.includes('skeleton') || nameLower.includes('wraith') || nameLower.includes('specter')) {
+      holyTrait = 'חלש (150% Heal) 🔥';
+      poisonTrait = 'חסין (0%) 🛡️';
+    } else if (nameLower.includes('fire') || nameLower.includes('red drake') || nameLower.includes('draco')) {
+      fireTrait = 'חסין (0%) 🛡️';
+      iceTrait = 'חלש (150%) ❄️';
+    } else if (nameLower.includes('ice') || nameLower.includes('cold') || nameLower.includes('yeti')) {
+      iceTrait = 'חסין (0%) 🛡️';
+      fireTrait = 'חלש (150%) 🔥';
+    } else if (nameLower.includes('slime') || nameLower.includes('snail') || nameLower.includes('mushroom') || nameLower.includes('plant')) {
+      fireTrait = 'חלש (150%) 🔥';
+    }
+
+    return { watk, matk, wdef, mdef, acc, eva, speed, kb, fireTrait, iceTrait, poisonTrait, holyTrait };
+  }, [selectedItem, selectedType]);
 
   const currentJobId = activeJob?.id || 'assassin';
   const currentJobData = WEAPONS_BY_JOB[currentJobId] || WEAPONS_BY_JOB['assassin'];
@@ -355,6 +692,35 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
     };
   }, [searchQuery, syncVersion, classicLaunchOnly, activeFilter, favorites]);
 
+  // Auto-expand accordion when search query produces results
+  useEffect(() => {
+    if (searchQuery.trim() && searchResults) {
+      setOpenSections({
+        monsters: (searchResults.monsters?.length || 0) > 0,
+        items: (searchResults.items?.length || 0) > 0,
+        gear: ((searchResults.weapons?.length || 0) + (searchResults.secondaryItems?.length || 0) + (searchResults.gearItems?.length || 0)) > 0,
+        npcs: (searchResults.npcs?.length || 0) > 0,
+        quests: (searchResults.quests?.length || 0) > 0,
+      });
+    }
+  }, [searchQuery, searchResults?.totalCount]);
+
+  // Smart initial tab selection for selected item
+  useEffect(() => {
+    if (selectedType === 'item' && selectedItem) {
+      if (allDropsForSelectedItem && allDropsForSelectedItem.length > 0) {
+        setItemDetailTab('drops');
+      } else if (selectedItem.soldInShops && selectedItem.soldInShops.length > 0) {
+        setItemDetailTab('shops');
+      } else if (((selectedItem.requiredForQuests?.length || 0) + (selectedItem.rewardFromQuests?.length || 0)) > 0) {
+        setItemDetailTab('quests');
+      } else {
+        setItemDetailTab('stats');
+      }
+    }
+  }, [selectedItem?.id, selectedType, allDropsForSelectedItem?.length]);
+
+
   // Auto-select first relevant result when query changes
   const handleSearchSelect = (queryText) => {
     const q = queryText.trim().toLowerCase();
@@ -492,74 +858,93 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
     return list.slice(0, 10);
   }, [searchQuery]);
 
-  // SMART CROSS-LINKING HELPER:
+  // SMART CROSS-LINKING HELPER (With History Tracking):
   const crossNavigate = (type, targetName) => {
-    setSearchQuery(targetName);
-    const cleanName = targetName.trim().toLowerCase();
+    const cleanDisplaySearch = (targetName || '').replace(/\s*\(.*?\)/g, '').trim();
+    const cleanName = cleanDisplaySearch.toLowerCase();
 
     if (type === 'monster') {
       const match = MONSTERS_DATABASE.find(m => 
-        cleanName.includes(m.name.toLowerCase()) || m.name.toLowerCase().includes(cleanName)
+        m.name.toLowerCase() === cleanName ||
+        cleanName.includes(m.name.toLowerCase()) || 
+        m.name.toLowerCase().includes(cleanName) ||
+        (m.nameHe && m.nameHe.includes(cleanDisplaySearch))
       );
       if (match) {
-        setSelectedType('monster');
-        setSelectedItem(match);
-        setActiveFilter('monsters');
+        selectItemWithHistory('monster', match, { filter: 'monsters' });
+        setOpenSections(prev => ({ ...prev, monsters: true }));
         return;
       }
     }
 
     if (type === 'item') {
-      const match = ITEMS_DATABASE.find(i => 
-        cleanName.includes(i.name.toLowerCase()) || i.name.toLowerCase().includes(cleanName)
+      const match = resolveItemData(targetName) || ITEMS_DATABASE.find(i => 
+        i.name.toLowerCase() === cleanName ||
+        cleanName.includes(i.name.toLowerCase()) || 
+        i.name.toLowerCase().includes(cleanName) ||
+        (i.nameHe && i.nameHe.includes(cleanDisplaySearch))
       );
       if (match) {
-        setSelectedType('item');
-        setSelectedItem(match);
-        setActiveFilter('items');
+        selectItemWithHistory('item', match, { filter: 'items' });
+        setOpenSections(prev => ({ ...prev, items: true }));
         return;
       }
     }
 
     if (type === 'npc') {
       const match = NPCS_DATABASE.find(n => 
-        cleanName.includes(n.name.toLowerCase()) || n.name.toLowerCase().includes(cleanName)
+        n.name.toLowerCase() === cleanName ||
+        cleanName.includes(n.name.toLowerCase()) || 
+        n.name.toLowerCase().includes(cleanName) ||
+        (n.nameHe && n.nameHe.includes(cleanDisplaySearch))
       );
       if (match) {
         setSelectedType('npc');
         setSelectedItem(match);
         setActiveFilter('npcs');
+        setOpenSections(prev => ({ ...prev, npcs: true }));
         return;
       }
     }
 
     if (type === 'quest') {
       const match = QUESTS_DATABASE.find(q => 
-        cleanName.includes(q.name.toLowerCase()) || q.name.toLowerCase().includes(cleanName)
+        q.name.toLowerCase() === cleanName ||
+        cleanName.includes(q.name.toLowerCase()) || 
+        q.name.toLowerCase().includes(cleanName) ||
+        (q.nameHe && q.nameHe.includes(cleanDisplaySearch))
       );
       if (match) {
         setSelectedType('quest');
         setSelectedItem(match);
         setActiveFilter('quests');
+        setOpenSections(prev => ({ ...prev, quests: true }));
         return;
       }
     }
 
     if (type === 'weapon') {
       const match = ALL_WEAPONS_DATABASE.find(w => 
-        cleanName.includes(w.name.toLowerCase()) || w.name.toLowerCase().includes(cleanName)
+        w.name.toLowerCase() === cleanName ||
+        cleanName.includes(w.name.toLowerCase()) || 
+        w.name.toLowerCase().includes(cleanName) ||
+        (w.nameHe && w.nameHe.includes(cleanDisplaySearch))
       );
       if (match) {
         setSelectedType('weapon');
         setSelectedItem(match);
         setActiveFilter('gear');
+        setOpenSections(prev => ({ ...prev, gear: true }));
         return;
       }
     }
 
     if (type === 'secondary') {
       const match = ALL_SECONDARY_DATABASE.find(s => 
-        cleanName.includes(s.name.toLowerCase()) || s.name.toLowerCase().includes(cleanName)
+        s.name.toLowerCase() === cleanName ||
+        cleanName.includes(s.name.toLowerCase()) || 
+        s.name.toLowerCase().includes(cleanName) ||
+        (s.nameHe && s.nameHe.includes(cleanDisplaySearch))
       );
       if (match) {
         setSelectedType('secondary');
@@ -645,12 +1030,7 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
               {suggestions.map((s, idx) => (
                 <div
                   key={idx}
-                  onClick={() => {
-                    setSearchQuery(s.title);
-                    setSelectedType(s.type);
-                    setSelectedItem(s.item);
-                    setShowSuggestions(false);
-                  }}
+                  onClick={() => { selectItemWithHistory(s.type, s.item, { query: s.title }); setShowSuggestions(false); }}
                   className="p-3.5 hover:bg-cyan-500/20 cursor-pointer flex items-center justify-between transition-all group"
                 >
                   <div className="flex items-center gap-3">
@@ -816,72 +1196,133 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Column 1: Filtered Categorized Results List (5 cols) */}
-        <div className="lg:col-span-5 space-y-4 max-h-[840px] overflow-y-auto pr-1">
+        <div className="lg:col-span-5 space-y-3.5 max-h-[860px] overflow-y-auto pr-1">
+
+          {/* Accordion Controls Bar */}
+          <div className="flex items-center justify-between p-2.5 rounded-2xl liquid-glass-subtle border border-white/10 text-xs">
+            <div className="flex items-center gap-2 font-bold text-slate-200">
+              <span className="text-base">📂</span>
+              <span>{langMode === 'en' ? 'Database Categories:' : 'קטגוריות מאגר:'}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setAllSections(true)}
+                className="px-2.5 py-1 rounded-xl bg-sky-950/70 hover:bg-sky-900/80 text-cyan-300 text-[11px] font-bold border border-cyan-400/30 transition shadow-sm"
+              >
+                {langMode === 'en' ? '▼ Expand All' : '▼ פתח הכל'}
+              </button>
+              <button
+                onClick={() => setAllSections(false)}
+                className="px-2.5 py-1 rounded-xl bg-slate-900/70 hover:bg-slate-800/80 text-slate-400 hover:text-slate-200 text-[11px] font-bold border border-white/10 transition shadow-sm"
+              >
+                {langMode === 'en' ? '◀ Collapse All' : '◀ סגור הכל'}
+              </button>
+            </div>
+          </div>
           
+          
+          {/* Universal Empty State for Search */}
+          {searchResults.totalCount === 0 && (
+            <div className="liquid-glass-card p-8 rounded-3xl border border-white/10 text-center space-y-4 my-2">
+              <div className="text-4xl animate-bounce">🔍</div>
+              <div>
+                <h4 className="font-black text-white text-base">
+                  {langMode === 'en' ? 'No Matching Results Found' : 'לא נמצאו תוצאות התואמות לחיפוש'}
+                </h4>
+                <p className="text-xs text-slate-300 mt-1">
+                  {langMode === 'en'
+                    ? `No entries match "${searchQuery}" in the database.`
+                    : `לא נמצאו רשומות התואמות ל-"${searchQuery}". בדוק שגיאות כתיב או אפס את המסננים.`}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setActiveFilter('all');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-slate-950 font-black text-xs shadow-lg transition cursor-pointer"
+              >
+                {langMode === 'en' ? 'Reset Search & Show All' : 'נקה חיפוש והצג את כל המאגר'}
+              </button>
+            </div>
+          )}
+
           {/* Section: Monsters */}
           {(activeFilter === 'all' || activeFilter === 'monsters' || activeFilter === 'favorites') && searchResults.monsters.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-cyan-200 liquid-glass-subtle px-3 py-2 rounded-xl border border-sky-400/30">
-                <span>👾 {t('monsters')} ({searchResults.monsters.length})</span>
-                <span className="text-[10px] text-slate-300">{langMode === 'en' ? 'Click for details & routes' : 'לחץ לפרטים ודרכי הגעה'}</span>
-              </div>
-              <div className="space-y-2">
-                {searchResults.monsters.slice(0, visibleMonstersCount).map(m => {
-                  const isSelected = selectedType === 'monster' && selectedItem?.id === m.id;
-                  const fav = isFav(m.id);
-                  return (
-                    <div
-                      key={m.id}
-                      onClick={() => {
-                        setSelectedType('monster');
-                        setSelectedItem(m);
-                      }}
-                      className={`p-3 rounded-2xl cursor-pointer transition border flex items-center justify-between ${
-                        isSelected
-                          ? 'glow-active bg-sky-950/70 border-sky-400 shadow-lg shadow-sky-500/30 ring-1 ring-sky-300/50'
-                          : 'liquid-glass-card hover:border-sky-400/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-xl liquid-glass-pill p-1 border border-white/15 flex items-center justify-center bg-slate-900/40 shrink-0">
-                          <GameAssetImage
-                            src={m.animUrl || m.spriteUrl}
-                            fallbackSrc={m.renderUrl || m.spriteUrl}
-                            alt={m.name}
-                            emojiFallback={m.icon}
-                            size="md"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-white text-sm">{m.name}</span>
-                            <span className="text-[11px] font-mono text-amber-300 font-bold">Lv. {m.level}</span>
+              <button
+                onClick={() => toggleSection('monsters')}
+                className="w-full flex items-center justify-between text-xs font-black text-cyan-200 liquid-glass-subtle px-3.5 py-2.5 rounded-2xl border border-sky-400/30 hover:border-sky-400/70 hover:bg-sky-950/60 transition cursor-pointer shadow-sm group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base group-hover:scale-110 transition-transform">👾</span>
+                  <span className="text-sm font-black">{t('monsters')}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-400/30 font-bold">
+                    {searchResults.monsters.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 group-hover:text-cyan-300">
+                  <span className="font-medium">{openSections.monsters ? (langMode === 'en' ? 'Collapse' : 'סגור') : (langMode === 'en' ? 'Expand' : 'פתח')}</span>
+                  <span className={`text-xs transform transition-transform duration-200 font-bold ${openSections.monsters ? 'rotate-90' : ''}`}>◀</span>
+                </div>
+              </button>
+
+              {openSections.monsters && (
+                <div className="space-y-2 animate-fade-in">
+                  {searchResults.monsters.slice(0, visibleMonstersCount).map(m => {
+                    const isSelected = selectedType === 'monster' && selectedItem?.id === m.id;
+                    const fav = isFav(m.id);
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => selectItemWithHistory('monster', m)}
+                        className={`p-3 rounded-2xl cursor-pointer transition border flex items-center justify-between ${
+                          isSelected
+                            ? 'glow-active bg-sky-950/70 border-sky-400 shadow-lg shadow-sky-500/30 ring-1 ring-sky-300/50'
+                            : 'liquid-glass-card hover:border-sky-400/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-xl liquid-glass-pill p-1 border border-white/15 flex items-center justify-center bg-slate-900/40 shrink-0">
+                            <GameAssetImage
+                              src={m.animUrl || m.spriteUrl}
+                              fallbackSrc={m.renderUrl || m.spriteUrl}
+                              alt={m.name}
+                              emojiFallback={m.icon}
+                              size="md"
+                            />
                           </div>
-                          <div className="text-xs text-slate-300">{m.nameHe} • {m.town}</div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-white text-sm">{m.name}</span>
+                              <span className="text-[11px] font-mono text-amber-300 font-bold">Lv. {m.level}</span>
+                            </div>
+                            <div className="text-xs text-slate-300">{m.nameHe} • {m.town}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-cyan-200 font-mono font-bold">{m.hp} HP</span>
+                          <button
+                            onClick={(e) => toggleFavorite(m.id, e)}
+                            className={`p-1.5 rounded-lg transition hover:scale-110 ${fav ? 'text-amber-400 text-sm' : 'text-slate-500 hover:text-slate-300 text-xs'}`}
+                            title={fav ? 'הסר ממועדפים' : 'הוסף למועדפים'}
+                          >
+                            {fav ? '⭐' : '☆'}
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-cyan-200 font-mono font-bold">{m.hp} HP</span>
-                        <button
-                          onClick={(e) => toggleFavorite(m.id, e)}
-                          className={`p-1.5 rounded-lg transition hover:scale-110 ${fav ? 'text-amber-400 text-sm' : 'text-slate-500 hover:text-slate-300 text-xs'}`}
-                          title={fav ? 'הסר ממועדפים' : 'הוסף למועדפים'}
-                        >
-                          {fav ? '⭐' : '☆'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {searchResults.monsters.length > visibleMonstersCount && (
-                <button
-                  onClick={() => setVisibleMonstersCount(prev => prev + 30)}
-                  className="w-full py-2.5 rounded-xl liquid-glass-pill border border-sky-400/30 hover:border-sky-400 text-xs font-bold text-sky-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
-                >
-                  <span>➕</span>
-                  <span>{t('loadMore')} 30 {t('monsters')} ({searchResults.monsters.length - visibleMonstersCount} {t('remaining')})</span>
-                </button>
+                    );
+                  })}
+                  {searchResults.monsters.length > visibleMonstersCount && (
+                    <button
+                      onClick={() => setVisibleMonstersCount(prev => prev + 30)}
+                      className="w-full py-2.5 rounded-xl liquid-glass-pill border border-sky-400/30 hover:border-sky-400 text-xs font-bold text-sky-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <span>➕</span>
+                      <span>{t('loadMore')} 30 {t('monsters')} ({searchResults.monsters.length - visibleMonstersCount} {t('remaining')})</span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -889,21 +1330,32 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
           {/* Section: Items */}
           {(activeFilter === 'all' || activeFilter === 'items' || activeFilter === 'favorites') && searchResults.items.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-amber-300 liquid-glass-subtle px-3 py-2 rounded-xl border border-amber-500/30">
-                <span>💎 {t('items')} ({searchResults.items.length})</span>
-                <span className="text-[10px] text-slate-400">{langMode === 'en' ? 'Shops & Drops' : 'חנויות ודרופים'}</span>
-              </div>
-              <div className="space-y-2">
+              <button
+                onClick={() => toggleSection('items')}
+                className="w-full flex items-center justify-between text-xs font-black text-amber-300 liquid-glass-subtle px-3.5 py-2.5 rounded-2xl border border-amber-500/30 hover:border-amber-400/60 hover:bg-amber-950/30 transition cursor-pointer shadow-sm group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base group-hover:scale-110 transition-transform">💎</span>
+                  <span className="text-sm font-black">{t('items')}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono border border-amber-500/30 font-bold">
+                    {searchResults.items.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400 group-hover:text-amber-300 text-[11px]">
+                  <span className="font-medium">{openSections.items ? (langMode === 'en' ? 'Collapse' : 'סגור') : (langMode === 'en' ? 'Expand' : 'פתח')}</span>
+                  <span className={`text-xs transform transition-transform duration-200 font-bold ${openSections.items ? 'rotate-90' : ''}`}>◀</span>
+                </div>
+              </button>
+
+              {openSections.items && (
+                <div className="space-y-2 animate-fade-in">
                 {searchResults.items.slice(0, visibleItemsCount).map(item => {
                   const isSelected = selectedType === 'item' && selectedItem?.id === item.id;
                   const fav = isFav(item.id);
                   return (
                     <div
                       key={item.id}
-                      onClick={() => {
-                        setSelectedType('item');
-                        setSelectedItem(item);
-                      }}
+                      onClick={() => selectItemWithHistory('item', item)}
                       className={`p-3 rounded-2xl cursor-pointer transition border flex items-center justify-between ${
                         isSelected
                           ? 'glow-active bg-amber-900/40 border-amber-400 shadow-lg shadow-amber-500/30 ring-1 ring-amber-400/50'
@@ -948,15 +1400,16 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                     </div>
                   );
                 })}
-              </div>
-              {searchResults.items.length > visibleItemsCount && (
-                <button
-                  onClick={() => setVisibleItemsCount(prev => prev + 30)}
-                  className="w-full py-2.5 rounded-xl liquid-glass-pill border border-amber-400/30 hover:border-amber-400 text-xs font-bold text-amber-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
-                >
-                  <span>➕</span>
-                  <span>{t('loadMore')} 30 {t('items')} ({searchResults.items.length - visibleItemsCount} {t('remaining')})</span>
-                </button>
+                {searchResults.items.length > visibleItemsCount && (
+                    <button
+                      onClick={() => setVisibleItemsCount(prev => prev + 30)}
+                      className="w-full py-2.5 rounded-xl liquid-glass-pill border border-amber-400/30 hover:border-amber-400 text-xs font-bold text-amber-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <span>➕</span>
+                      <span>{t('loadMore')} 30 {t('items')} ({searchResults.items.length - visibleItemsCount} {t('remaining')})</span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -964,11 +1417,25 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
           {/* Section: Quests (With deep content match highlights) */}
           {(activeFilter === 'all' || activeFilter === 'quests' || activeFilter === 'favorites') && searchResults.quests.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-teal-300 liquid-glass-subtle px-3 py-2 rounded-xl border border-teal-500/30">
-                <span>📜 {t('quests')} ({searchResults.quests.length})</span>
-                <span className="text-[10px] text-slate-400">{langMode === 'en' ? 'Requirements, guide & rewards' : 'דרישות, מדריך ופרסים'}</span>
-              </div>
-              <div className="space-y-2">
+              <button
+                onClick={() => toggleSection('quests')}
+                className="w-full flex items-center justify-between text-xs font-black text-emerald-300 liquid-glass-subtle px-3.5 py-2.5 rounded-2xl border border-emerald-500/30 hover:border-emerald-400/60 hover:bg-emerald-950/30 transition cursor-pointer shadow-sm group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base group-hover:scale-110 transition-transform">📜</span>
+                  <span className="text-sm font-black">{t('quests')}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30 font-bold">
+                    {searchResults.quests.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400 group-hover:text-emerald-300 text-[11px]">
+                  <span className="font-medium">{openSections.quests ? (langMode === 'en' ? 'Collapse' : 'סגור') : (langMode === 'en' ? 'Expand' : 'פתח')}</span>
+                  <span className={`text-xs transform transition-transform duration-200 font-bold ${openSections.quests ? 'rotate-90' : ''}`}>◀</span>
+                </div>
+              </button>
+
+              {openSections.quests && (
+                <div className="space-y-2 animate-fade-in">
                 {searchResults.quests.slice(0, visibleQuestsCount).map(quest => {
                   const isSelected = selectedType === 'quest' && selectedItem?.id === quest.id;
                   const matchReason = getQuestMatchReason(quest, searchQuery, langMode);
@@ -977,10 +1444,7 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                   return (
                     <div
                       key={quest.id}
-                      onClick={() => {
-                        setSelectedType('quest');
-                        setSelectedItem(quest);
-                      }}
+                      onClick={() => selectItemWithHistory('quest', quest)}
                       className={`p-3 rounded-2xl cursor-pointer transition border flex flex-col gap-1.5 ${
                         isSelected
                           ? 'glow-active bg-teal-900/40 border-teal-400 shadow-lg shadow-teal-500/30 ring-1 ring-teal-400/50'
@@ -1019,15 +1483,16 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                     </div>
                   );
                 })}
-              </div>
-              {searchResults.quests.length > visibleQuestsCount && (
-                <button
-                  onClick={() => setVisibleQuestsCount(prev => prev + 30)}
-                  className="w-full py-2.5 rounded-xl liquid-glass-pill border border-teal-400/30 hover:border-teal-400 text-xs font-bold text-teal-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
-                >
-                  <span>➕</span>
-                  <span>{t('loadMore')} 30 {t('quests')} ({searchResults.quests.length - visibleQuestsCount} {t('remaining')})</span>
-                </button>
+                {searchResults.quests.length > visibleQuestsCount && (
+                    <button
+                      onClick={() => setVisibleQuestsCount(prev => prev + 30)}
+                      className="w-full py-2.5 rounded-xl liquid-glass-pill border border-teal-400/30 hover:border-teal-400 text-xs font-bold text-teal-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <span>➕</span>
+                      <span>{t('loadMore')} 30 {t('quests')} ({searchResults.quests.length - visibleQuestsCount} {t('remaining')})</span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1035,53 +1500,73 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
           {/* Section: NPCs */}
           {(activeFilter === 'all' || activeFilter === 'npcs' || activeFilter === 'favorites') && searchResults.npcs.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-teal-300 liquid-glass-subtle px-3 py-2 rounded-xl border border-teal-500/30">
-                <span>👤 {t('npcs')} ({searchResults.npcs.length})</span>
-                <span className="text-[10px] text-slate-400">{langMode === 'en' ? 'Location & directions' : 'מיקום ודרכי הגעה'}</span>
-              </div>
-              <div className="space-y-2">
-                {searchResults.npcs.slice(0, visibleNpcsCount).map(npc => {
-                  const isSelected = selectedType === 'npc' && selectedItem?.id === npc.id;
-                  const fav = isFav(npc.id);
-                  return (
-                    <div
-                      key={npc.id}
-                      onClick={() => {
-                        setSelectedType('npc');
-                        setSelectedItem(npc);
-                      }}
-                      className={`p-3 rounded-2xl cursor-pointer transition border flex items-center justify-between ${
-                        isSelected
-                          ? 'glow-active bg-teal-950/70 border-teal-400 shadow-lg shadow-teal-500/30 ring-1 ring-teal-300/50'
-                          : 'liquid-glass-card hover:border-teal-400/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl liquid-glass-pill p-2 rounded-xl border border-white/15">{npc.icon}</span>
-                        <div>
-                          <div className="font-bold text-white text-sm">{npc.name}</div>
-                          <div className="text-xs text-slate-300">{npc.nameHe} • {npc.town}</div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => toggleFavorite(npc.id, e)}
-                        className={`p-1.5 rounded-lg transition hover:scale-110 ${fav ? 'text-amber-400 text-sm' : 'text-slate-500 hover:text-slate-300 text-xs'}`}
-                        title={fav ? 'הסר ממועדפים' : 'הוסף למועדפים'}
+              <button
+                onClick={() => toggleSection('npcs')}
+                className="w-full flex items-center justify-between text-xs font-black text-teal-300 liquid-glass-subtle px-3.5 py-2.5 rounded-2xl border border-teal-500/30 hover:border-teal-400/60 hover:bg-teal-950/30 transition cursor-pointer shadow-sm group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base group-hover:scale-110 transition-transform">👤</span>
+                  <span className="text-sm font-black">{t('npcs')}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-mono border border-teal-500/30 font-bold">
+                    {searchResults.npcs.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400 group-hover:text-teal-300 text-[11px]">
+                  <span className="font-medium">{openSections.npcs ? (langMode === 'en' ? 'Collapse' : 'סגור') : (langMode === 'en' ? 'Expand' : 'פתח')}</span>
+                  <span className={`text-xs transform transition-transform duration-200 font-bold ${openSections.npcs ? 'rotate-90' : ''}`}>◀</span>
+                </div>
+              </button>
+
+              {openSections.npcs && (
+                <div className="space-y-2 animate-fade-in">
+                  {searchResults.npcs.slice(0, visibleNpcsCount).map(npc => {
+                    const isSelected = selectedType === 'npc' && selectedItem?.id === npc.id;
+                    const fav = isFav(npc.id);
+                    return (
+                      <div
+                        key={npc.id}
+                        onClick={() => selectItemWithHistory('npc', npc)}
+                        className={`p-3 rounded-2xl cursor-pointer transition border flex items-center justify-between ${
+                          isSelected
+                            ? 'glow-active bg-teal-950/70 border-teal-400 shadow-lg shadow-teal-500/30 ring-1 ring-teal-300/50'
+                            : 'liquid-glass-card hover:border-teal-400/40'
+                        }`}
                       >
-                        {fav ? '⭐' : '☆'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              {searchResults.npcs.length > visibleNpcsCount && (
-                <button
-                  onClick={() => setVisibleNpcsCount(prev => prev + 30)}
-                  className="w-full py-2.5 rounded-xl liquid-glass-pill border border-teal-400/30 hover:border-teal-400 text-xs font-bold text-teal-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
-                >
-                  <span>➕</span>
-                  <span>{t('loadMore')} 30 {t('npcs')} ({searchResults.npcs.length - visibleNpcsCount} {t('remaining')})</span>
-                </button>
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-xl liquid-glass-pill p-1 border border-white/15 flex items-center justify-center bg-slate-900/40 shrink-0">
+                            <GameAssetImage
+                              src={npc.iconUrl}
+                              fallbackSrc={npc.renderUrl}
+                              alt={npc.name}
+                              emojiFallback={npc.icon}
+                              size="md"
+                            />
+                          </div>
+                          <div>
+                            <div className="font-bold text-white text-sm">{npc.name}</div>
+                            <div className="text-xs text-slate-300">{npc.nameHe} • {npc.town}</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => toggleFavorite(npc.id, e)}
+                          className={`p-1.5 rounded-lg transition hover:scale-110 ${fav ? 'text-amber-400 text-sm' : 'text-slate-500 hover:text-slate-300 text-xs'}`}
+                          title={fav ? 'הסר ממועדפים' : 'הוסף למועדפים'}
+                        >
+                          {fav ? '⭐' : '☆'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {searchResults.npcs.length > visibleNpcsCount && (
+                    <button
+                      onClick={() => setVisibleNpcsCount(prev => prev + 30)}
+                      className="w-full py-2.5 rounded-xl liquid-glass-pill border border-teal-400/30 hover:border-teal-400 text-xs font-bold text-teal-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <span>➕</span>
+                      <span>{t('loadMore')} 30 {t('npcs')} ({searchResults.npcs.length - visibleNpcsCount} {t('remaining')})</span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1089,10 +1574,25 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
           {/* Section: Weapons, Secondary & Gear (Multi-Class) */}
           {(activeFilter === 'all' || activeFilter === 'gear' || activeFilter === 'favorites') && (searchResults.weapons.length > 0 || searchResults.secondaryItems.length > 0 || searchResults.gearItems.length > 0) && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-black text-cyan-200 liquid-glass-subtle px-3 py-2 rounded-xl border border-sky-400/30">
-                <span>{gearConfig.icon} כלי נשק וציוד שנמצאו ({searchResults.weapons.length + searchResults.secondaryItems.length + searchResults.gearItems.length})</span>
-                <span className="text-[10px] text-slate-300">מותאם למקצוע הנבחר ({gearConfig.jobLabel})</span>
-              </div>
+              <button
+                onClick={() => toggleSection('gear')}
+                className="w-full flex items-center justify-between text-xs font-black text-cyan-200 liquid-glass-subtle px-3.5 py-2.5 rounded-2xl border border-sky-400/30 hover:border-sky-400/60 hover:bg-sky-950/60 transition cursor-pointer shadow-sm group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base group-hover:scale-110 transition-transform">{gearConfig.icon}</span>
+                  <span className="text-sm font-black">כלי נשק וציוד</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-400/30 font-bold">
+                    {searchResults.weapons.length + searchResults.secondaryItems.length + searchResults.gearItems.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400 group-hover:text-cyan-300 text-[11px]">
+                  <span className="font-medium">{openSections.gear ? (langMode === 'en' ? 'Collapse' : 'סגור') : (langMode === 'en' ? 'Expand' : 'פתח')}</span>
+                  <span className={`text-xs transform transition-transform duration-200 font-bold ${openSections.gear ? 'rotate-90' : ''}`}>◀</span>
+                </div>
+              </button>
+
+              {openSections.gear && (
+                <div className="space-y-3 animate-fade-in">
 
               {/* Sub-Filters within Gear */}
               <div className="flex items-center gap-1.5 flex-wrap p-1 rounded-xl liquid-glass-subtle border border-white/10 text-[11px]">
@@ -1157,10 +1657,7 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                       return (
                         <div
                           key={w.id}
-                          onClick={() => {
-                            setSelectedType('weapon');
-                            setSelectedItem(w);
-                          }}
+                          onClick={() => selectItemWithHistory('weapon', w)}
                           className={`p-3 rounded-2xl cursor-pointer transition border flex items-center justify-between ${
                             isSelected
                               ? 'glow-active bg-sky-950/70 border-sky-400 shadow-lg shadow-sky-500/30 ring-1 ring-sky-300/50'
@@ -1220,10 +1717,7 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                       return (
                         <div
                           key={s.id}
-                          onClick={() => {
-                            setSelectedType('secondary');
-                            setSelectedItem(s);
-                          }}
+                          onClick={() => selectItemWithHistory('secondary', s)}
                           className={`p-3 rounded-2xl cursor-pointer transition border flex items-center justify-between ${
                             isSelected
                               ? 'glow-active bg-emerald-950/70 border-emerald-400 shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-300/50'
@@ -1270,10 +1764,7 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                       return (
                         <div
                           key={g.id}
-                          onClick={() => {
-                            setSelectedType('essential');
-                            setSelectedItem(g);
-                          }}
+                          onClick={() => selectItemWithHistory('essential', g)}
                           className={`p-3 rounded-2xl cursor-pointer transition border flex items-center justify-between ${
                             isSelected
                               ? 'glow-active bg-purple-950/70 border-cyan-400 shadow-lg shadow-cyan-500/30 ring-1 ring-cyan-300/50'
@@ -1310,17 +1801,19 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                     })}
                   </>
                 )}
-
-                {searchResults.weapons.length + searchResults.secondaryItems.length > visibleGearCount && (
-                  <button
-                    onClick={() => setVisibleGearCount(prev => prev + 30)}
-                    className="w-full py-2.5 rounded-xl liquid-glass-pill border border-cyan-400/30 hover:border-cyan-400 text-xs font-bold text-cyan-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    <span>➕</span>
-                    <span>{t('loadMore')} 30 {langMode === 'en' ? 'weapons/equipment' : 'כלי נשק/ציוד'}</span>
-                  </button>
-                )}
               </div>
+
+              {searchResults.weapons.length + searchResults.secondaryItems.length > visibleGearCount && (
+                <button
+                  onClick={() => setVisibleGearCount(prev => prev + 30)}
+                  className="w-full py-2.5 rounded-xl liquid-glass-pill border border-cyan-400/30 hover:border-cyan-400 text-xs font-bold text-cyan-200 hover:text-white transition shadow-md flex items-center justify-center gap-1.5"
+                >
+                  <span>➕</span>
+                  <span>{t('loadMore')} 30 {langMode === 'en' ? 'weapons/equipment' : 'כלי נשק/ציוד'}</span>
+                </button>
+              )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1345,6 +1838,51 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
         {/* Column 2: Deep Detail Inspector with SMART CROSS-LINKING (7 cols) */}
         <div className="lg:col-span-7 liquid-glass rounded-3xl p-5 sm:p-6 shadow-2xl relative border border-white/15 backdrop-blur-2xl min-w-0">
           
+          {/* PROMINENT STICKY NAVIGATION HISTORY BAR */}
+          {navHistory.length > 0 && (
+            <div className="sticky top-0 z-30 mb-5 p-3 rounded-2xl bg-gradient-to-r from-slate-950/95 via-sky-950/95 to-slate-950/95 border-2 border-amber-400/70 shadow-2xl shadow-amber-500/10 backdrop-blur-xl flex items-center justify-between gap-3 flex-wrap ring-4 ring-amber-500/10 animate-fade-in">
+              <button
+                onClick={handleGoBack}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs sm:text-sm shadow-xl shadow-amber-500/30 transition transform hover:scale-[1.02] active:scale-95 border border-yellow-200 cursor-pointer"
+                title={langMode === 'en' ? 'Back to previous view (Alt + Left / Mouse Back button)' : 'חזור לדף הקודם (Alt + חץ שמאלה / כפתור חזרה בעכבר)'}
+              >
+                <span className="text-base">↩️</span>
+                <span>
+                  {langMode === 'en'
+                    ? `Back to ${navHistory[navHistory.length - 1]?.item?.name || 'Previous'}`
+                    : `חזור אל ${navHistory[navHistory.length - 1]?.item?.nameHe || navHistory[navHistory.length - 1]?.item?.name || 'הקודם'}`}
+                </span>
+              </button>
+
+              <div className="flex items-center gap-2 text-xs overflow-x-auto text-slate-200 py-1 max-w-[280px] sm:max-w-md">
+                <span className="text-[10px] text-amber-300 font-mono font-bold shrink-0">נתיב:</span>
+                {navHistory.map((step, idx) => (
+                  <React.Fragment key={idx}>
+                    <button
+                      onClick={() => handleJumpToHistory(idx)}
+                      className="hover:text-amber-300 text-cyan-200 underline font-medium truncate max-w-[120px] transition text-xs"
+                      title={step.item?.name}
+                    >
+                      {step.item?.nameHe || step.item?.name}
+                    </button>
+                    <span className="text-amber-400/70 font-bold">›</span>
+                  </React.Fragment>
+                ))}
+                <span className="font-bold text-white truncate max-w-[120px] px-2 py-0.5 rounded-lg bg-white/10">
+                  {selectedItem?.nameHe || selectedItem?.name}
+                </span>
+              </div>
+
+              <button
+                onClick={() => setNavHistory([])}
+                className="text-xs text-slate-400 hover:text-rose-300 transition px-2.5 py-1.5 rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-white/10 font-mono"
+                title={langMode === 'en' ? 'Clear navigation trail' : 'נקה היסטוריית חזרה'}
+              >
+                ✕ {langMode === 'en' ? 'Clear' : 'איפוס'}
+              </button>
+            </div>
+          )}
+          
           {/* INSPECTOR: MONSTER */}
           {selectedType === 'monster' && selectedItem && (
             <div className="space-y-5">
@@ -1368,12 +1906,6 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                           {langMode === 'en' ? `Lv. ${selectedItem.level}` : `רמה ${selectedItem.level}`}
                         </span>
                         <span className="text-xs text-slate-300 font-medium whitespace-nowrap">{selectedItem.town}</span>
-                        {selectedItem.animUrl && (
-                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            {langMode === 'en' ? 'MeowDB Animation' : 'אנימציה מ-MeowDB'}
-                          </span>
-                        )}
                       </div>
                       <h3 className="text-2xl sm:text-3xl font-black text-white mt-0.5 tracking-tight truncate">{selectedItem.name}</h3>
                       <div className="text-sm text-sky-200 font-medium">{selectedItem.nameHe}</div>
@@ -1443,109 +1975,317 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                 </div>
               </div>
 
-              {/* MSCW v1.0.0 Classic Patch Note */}
-              {selectedItem.classicPatch && (
-                <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/50 p-3 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-md">
-                  <div className="flex items-center gap-2 text-amber-200 font-bold">
-                    <span className="text-lg">⚡</span>
-                    <span>{selectedItem.classicPatch}</span>
+              
+                {/* MeowDB Classic Combat Stats Grid */}
+                {monsterCombatStats && (
+                  <div className="space-y-2 pt-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+                      <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                        <div className="text-[10px] text-slate-400 font-medium">{langMode === 'en' ? 'Phys. ATT' : 'התקפה פיזית'}</div>
+                        <div className="font-black text-rose-300 font-mono text-sm mt-0.5">{monsterCombatStats.watk}</div>
+                      </div>
+                      <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                        <div className="text-[10px] text-slate-400 font-medium">{langMode === 'en' ? 'Magic ATT' : 'התקפת קסם'}</div>
+                        <div className="font-black text-purple-300 font-mono text-sm mt-0.5">{monsterCombatStats.matk}</div>
+                      </div>
+                      <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                        <div className="text-[10px] text-slate-400 font-medium">{langMode === 'en' ? 'Phys. DEF' : 'הגנה (W.DEF)'}</div>
+                        <div className="font-black text-sky-300 font-mono text-sm mt-0.5">{monsterCombatStats.wdef}</div>
+                      </div>
+                      <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                        <div className="text-[10px] text-slate-400 font-medium">{langMode === 'en' ? 'Magic DEF' : 'הגנת קסם'}</div>
+                        <div className="font-black text-cyan-300 font-mono text-sm mt-0.5">{monsterCombatStats.mdef}</div>
+                      </div>
+                      <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                        <div className="text-[10px] text-slate-400 font-medium">{langMode === 'en' ? 'Avoid (EVA)' : 'התחמקות (EVA)'}</div>
+                        <div className="font-black text-emerald-300 font-mono text-sm mt-0.5">{monsterCombatStats.eva}</div>
+                      </div>
+                      <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                        <div className="text-[10px] text-slate-400 font-medium">{langMode === 'en' ? 'Knockback' : 'סף הדיפה (KB)'}</div>
+                        <div className="font-black text-amber-300 font-mono text-sm mt-0.5">{monsterCombatStats.kb}</div>
+                      </div>
+                    </div>
+
+                    {/* Elemental Affinities */}
+                    <div className="flex items-center gap-1.5 flex-wrap text-[11px] p-2 rounded-xl liquid-glass-subtle border border-white/10">
+                      <span className="text-slate-400 font-bold ml-1">{langMode === 'en' ? 'Attributes (MeowDB):' : 'רגישויות יסוד (MeowDB):'}</span>
+                      <span className="px-2 py-0.5 rounded-lg bg-orange-500/15 border border-orange-400/30 text-orange-200">
+                        🔥 אש: {monsterCombatStats.fireTrait}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-400/30 text-sky-200">
+                        ❄️ קרח: {monsterCombatStats.iceTrait}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-400/30 text-emerald-200">
+                        🧪 רעל: {monsterCombatStats.poisonTrait}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-400/30 text-amber-200">
+                        ✨ קדוש: {monsterCombatStats.holyTrait}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/40 font-mono font-bold shrink-0">
-                    MSCW v1.0.0 Patch
+                )}
+
+              {/* MeowDB-Style Categorized Tabs for Monster Info */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-950/70 rounded-2xl border border-sky-400/25 text-xs shadow-inner">
+                <button
+                  onClick={() => setMonsterDetailTab('drops')}
+                  className={`flex-1 py-2 px-3 rounded-xl font-bold transition flex items-center justify-center gap-1.5 ${
+                    monsterDetailTab === 'drops'
+                      ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span>💎</span>
+                  <span>{langMode === 'en' ? 'Drop Table' : 'טבלת דרופים'}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/30">
+                    {(selectedItem.notableDrops?.length || 0) + (selectedItem.verifiedDrops?.length || 0)}
                   </span>
+                </button>
+
+                <button
+                  onClick={() => setMonsterDetailTab('maps')}
+                  className={`flex-1 py-2 px-3 rounded-xl font-bold transition flex items-center justify-center gap-1.5 ${
+                    monsterDetailTab === 'maps'
+                      ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span>🗺️</span>
+                  <span>{langMode === 'en' ? 'Maps & Radar' : 'מפות והוראות הגעה'}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/30">
+                    {selectedItem.locations?.length || 1}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setMonsterDetailTab('tactics')}
+                  className={`flex-1 py-2 px-3 rounded-xl font-bold transition flex items-center justify-center gap-1.5 ${
+                    monsterDetailTab === 'tactics'
+                      ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span>🛡️</span>
+                  <span>{langMode === 'en' ? 'Tactics & Safe Spots' : 'טקטיקה ונקודות בטוחות'}</span>
+                </button>
+              </div>
+
+              {/* TAB 1: DROPS TABLE */}
+              {monsterDetailTab === 'drops' && (
+                <div className="space-y-4 animate-fade-in">
+
+                  {/* 1. Meso Drop Intel Banner */}
+                  {(() => {
+                    const mesoRange = getMonsterMesoDropRange(selectedItem);
+                    if (!mesoRange) return null;
+                    return (
+                      <div className="bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-600/15 p-3.5 sm:p-4 rounded-2xl border border-amber-400/40 shadow-lg space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-2xl p-1.5 rounded-xl bg-amber-500/20 border border-amber-400/40 shadow">
+                              💰
+                            </span>
+                            <div>
+                              <div className="text-xs font-bold text-amber-200">
+                                {langMode === 'en' ? 'Estimated Combat Meso Drop:' : 'שלל מסוס מוערך לחיסול:'}
+                              </div>
+                              <div className="text-base sm:text-lg font-black text-amber-300 font-mono tracking-wide">
+                                {mesoRange.min.toLocaleString()} ~ {mesoRange.max.toLocaleString()} {langMode === 'en' ? 'Mesos' : 'מסוס'}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/40 font-bold flex items-center gap-1">
+                            <span>🪙</span>
+                            <span>{langMode === 'en' ? mesoRange.bagEn : mesoRange.bag}</span>
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 leading-relaxed">
+                          {langMode === 'en'
+                            ? 'Estimated meso pouch dropped on every mob defeat in Pre-BigBang classic rules, in addition to item drops.'
+                            : 'בכל חיסול של מפלצת זו נושרת שקית מטבעות מסוס בסכום זה, בנוסף לשלל הפריטים והציוד.'}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 2. SMART CROSS-LINKING: Notable Drops */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                        <span>💎</span>
+                        <span>{langMode === 'en' ? 'Notable Drops (Click item to inspect):' : 'שלל ודרופים מרכזיים (לחץ על פריט למעבר אליו):'}</span>
+                      </span>
+                      <span className="text-[10px] text-cyan-300">🔗 קישור ישיר</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedItem.notableDrops || []).map((drop, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => crossNavigate('item', drop)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl liquid-glass-pill hover:border-amber-400/60 text-xs text-slate-100 transition group cursor-pointer"
+                        >
+                          <div className="w-6 h-6 rounded-lg bg-slate-900/90 border border-white/10 flex items-center justify-center shrink-0">
+                            <GameAssetImage
+                              src={getDropIconUrl(drop)}
+                              fallbackSrc={getDropIconFallback(drop)}
+                              alt={drop}
+                              emojiFallback={getDropCategoryEmoji(drop)}
+                              size="xs"
+                            />
+                          </div>
+                          <span className="font-bold group-hover:text-amber-300 transition">{drop}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 3. VERIFIED DROPS FROM MEOWDB & MESOWATCH */}
+                  {selectedItem.verifiedDrops && selectedItem.verifiedDrops.length > 0 && (() => {
+                    const drops = selectedItem.verifiedDrops;
+                    const filteredDrops = drops.filter(d => {
+                      if (monsterDropCategoryFilter === 'all') return true;
+                      const cat = (d.category || '').toLowerCase();
+                      const name = (d.name || '').toLowerCase();
+                      if (monsterDropCategoryFilter === 'equips') return cat.includes('equip') || cat.includes('armor');
+                      if (monsterDropCategoryFilter === 'weapons') return cat.includes('weapon');
+                      if (monsterDropCategoryFilter === 'use') return cat.includes('use') || cat.includes('potion');
+                      if (monsterDropCategoryFilter === 'scrolls') return cat.includes('scroll') || name.includes('scroll');
+                      if (monsterDropCategoryFilter === 'etc') return cat.includes('etc') || cat.includes('quest');
+                      return true;
+                    });
+
+                    return (
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                            <span>📊</span>
+                            <span>
+                              {langMode === 'en'
+                                ? `Verified Drops from MeowDB (${filteredDrops.length}/${drops.length}):`
+                                : `כלל הדרופים המאומתים מ-MeowDB (${filteredDrops.length}/${drops.length}):`}
+                            </span>
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {langMode === 'en' ? 'Community reports + Classic drop tables' : 'דיווחים קהילתיים + טבלאות קלאסיות'}
+                          </span>
+                        </div>
+
+                        {/* Category Filter Tabs */}
+                        <div className="flex items-center gap-1 p-1 bg-slate-950/80 rounded-xl border border-white/10 text-xs overflow-x-auto scrollbar-none">
+                          {[
+                            { id: 'all', label: langMode === 'en' ? 'All' : 'הכל', icon: '📋' },
+                            { id: 'equips', label: langMode === 'en' ? 'Equips' : 'ציוד', icon: '🛡️' },
+                            { id: 'weapons', label: langMode === 'en' ? 'Weapons' : 'נשקים', icon: '⚔️' },
+                            { id: 'use', label: langMode === 'en' ? 'Use' : 'שימוש', icon: '🧪' },
+                            { id: 'etc', label: langMode === 'en' ? 'Etc' : 'Etc', icon: '📦' },
+                            { id: 'scrolls', label: langMode === 'en' ? 'Scrolls' : 'מגילות', icon: '📜' },
+                          ].map(tab => (
+                            <button
+                              key={tab.id}
+                              onClick={() => setMonsterDropCategoryFilter(tab.id)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap cursor-pointer ${
+                                monsterDropCategoryFilter === tab.id
+                                  ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
+                                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                              }`}
+                            >
+                              <span>{tab.icon}</span>
+                              <span>{tab.label}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Drops Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto p-1.5 liquid-glass-subtle rounded-2xl border border-white/10 scrollbar-thin">
+                          {filteredDrops.map((d, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => crossNavigate('item', d.name)}
+                              className="liquid-glass-pill hover:border-cyan-400/50 p-2.5 rounded-xl border border-white/10 flex items-center justify-between text-xs cursor-pointer transition group gap-2"
+                              title={langMode === 'en' ? 'Click to inspect item in database' : 'לחץ לצפייה בפרטי הפריט במאגר'}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-slate-900/90 border border-white/15 p-1 flex items-center justify-center shrink-0 group-hover:border-cyan-400/60 shadow-inner">
+                                  <GameAssetImage
+                                    src={getDropIconUrl(d.name)}
+                                    fallbackSrc={getDropIconFallback(d.name)}
+                                    alt={d.name}
+                                    emojiFallback={getDropCategoryEmoji(d.name, d.category)}
+                                    size="sm"
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-white group-hover:text-cyan-300 transition truncate text-xs flex items-center gap-1.5">
+                                    <span>{d.name}</span>
+                                    {d.votes && (
+                                      <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-200 border border-sky-400/30 font-mono shrink-0">
+                                        👍 {d.votes}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-300 truncate">
+                                    {d.category || 'Item'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {d.price && (
+                                <div
+                                  className="text-right shrink-0"
+                                  title={langMode === 'en' ? 'Estimated Free Market trading value (MesoWatch)' : 'שווי מסחר ממוצע בשוק החופשי (MesoWatch)'}
+                                >
+                                  <span className="text-[11px] font-bold text-amber-300 font-mono px-2 py-0.5 rounded-lg bg-amber-950/40 border border-amber-400/30 block">
+                                    {formatMesoPrice(d.price, langMode === 'en')}
+                                  </span>
+                                  <span className="text-[9px] text-amber-400/80 block mt-0.5 font-sans">
+                                    {langMode === 'en' ? 'Market Value' : 'שווי שוק'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
-              {/* Locations */}
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                  <span>📍</span>
-                  <span>{langMode === 'en' ? 'Habitats & Maps:' : 'מפות בהן המפלצת נמצאת:'}</span>
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {selectedItem.locations.map((loc, idx) => (
-                    <span key={idx} className="liquid-glass-pill px-3 py-1.5 rounded-xl border border-white/10 text-xs text-slate-100">
-                      {loc}
-                    </span>
-                  ))}
+              {/* TAB 2: MAPS & TRAVEL */}
+              {monsterDetailTab === 'maps' && (
+                <div className="space-y-3">
+                  {/* Visual Travel & Arrival Guide (Unified for ALL monsters & all locations) */}
+                  <VisualTravelGuide monster={selectedItem} />
                 </div>
-              </div>
+              )}
 
-              {/* Visual Travel & Arrival Guide (Unified for ALL monsters & all locations) */}
-              <VisualTravelGuide monster={selectedItem} />
-
-              {/* SMART CROSS-LINKING: Notable Drops */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                    <span>💎</span>
-                    <span>{langMode === 'en' ? 'Notable Drops (Click item to inspect):' : 'שלל ודרופים מרכזיים (לחץ על פריט למעבר אליו):'}</span>
-                  </span>
-                  <span className="text-[10px] text-cyan-300">🔗 קישור ישיר</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(selectedItem.notableDrops || []).map((drop, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => crossNavigate('item', drop)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl liquid-glass-pill hover:border-amber-400/60 text-xs text-slate-100 transition group"
-                    >
-                      <GameAssetImage
-                        src={getDropIconUrl(drop)}
-                        fallbackSrc={getDropIconFallback(drop)}
-                        alt={drop}
-                        emojiFallback="📦"
-                        size="xs"
-                      />
-                      <span className="font-bold group-hover:text-amber-300 transition">{drop}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* VERIFIED DROPS FROM MEOWDB & MESOWATCH */}
-              {selectedItem.verifiedDrops && selectedItem.verifiedDrops.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                      <span>📊</span>
-                      <span>{langMode === 'en' ? `Verified Drops from MeowDB & MesoWatch (${selectedItem.verifiedDrops.length}):` : `כלל הדרופים המאומתים מ-MeowDB ו-MesoWatch (${selectedItem.verifiedDrops.length}):`}</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400">{langMode === 'en' ? 'Community reports + Classic drop tables' : 'דיווחים קהילתיים + טבלאות קלאסיות'}</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1.5 liquid-glass-subtle rounded-2xl border border-white/10">
-                    {selectedItem.verifiedDrops.map((d, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => crossNavigate('item', d.name)}
-                        className="liquid-glass-pill hover:border-cyan-400/50 p-2.5 rounded-xl border border-white/10 flex items-center justify-between text-xs cursor-pointer transition group"
-                      >
-                        <div>
-                          <div className="font-bold text-white group-hover:text-cyan-300 transition flex items-center gap-2">
-                            <GameAssetImage
-                              src={getDropIconUrl(d.name)}
-                              fallbackSrc={getDropIconFallback(d.name)}
-                              alt={d.name}
-                              emojiFallback="🔹"
-                              size="xs"
-                            />
-                            <span>{d.name}</span>
-                            {d.votes && (
-                              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-200 border border-sky-400/30 font-mono">
-                                👍 {d.votes}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-slate-300">{d.category}</div>
-                        </div>
-                        {d.price && (
-                          <span className="text-xs font-bold text-amber-300 font-mono shrink-0">
-                            {d.price}
-                          </span>
-                        )}
+              {/* TAB 3: TACTICS & SAFE SPOTS */}
+              {monsterDetailTab === 'tactics' && (
+                <div className="space-y-3">
+                  {selectedItem.safeSpots && (
+                    <div className="p-3.5 rounded-2xl bg-amber-950/20 border border-amber-400/25 space-y-1.5 text-xs">
+                      <div className="font-bold text-amber-200 flex items-center gap-1.5">
+                        <span>🛡️</span>
+                        <span>{langMode === 'en' ? 'Safe Spots & Tactics:' : 'נקודות עמידה בטוחה וטקטיקת קרב:'}</span>
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-slate-200 leading-relaxed text-xs">
+                        {selectedItem.safeSpots}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* MSCW v1.0.0 Classic Patch Note */}
+                  {selectedItem.classicPatch && (
+                    <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/50 p-3 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-md">
+                      <div className="flex items-center gap-2 text-amber-200 font-bold">
+                        <span className="text-lg">⚡</span>
+                        <span>{selectedItem.classicPatch}</span>
+                      </div>
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/40 font-mono font-bold shrink-0">
+                        MSCW v1.0.0 Patch
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1567,11 +2307,21 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                     />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40">
                         {selectedItem.obtainTypeHe}
                       </span>
                       <span className="text-xs text-slate-300">{selectedItem.categoryName}</span>
+                      {selectedItem.reqLevel !== undefined && selectedItem.reqLevel !== null && (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 font-mono">
+                          {langMode === 'en' ? `Req Lv. ${selectedItem.reqLevel}` : `רמה נדרשת: ${selectedItem.reqLevel}`}
+                        </span>
+                      )}
+                      {(selectedItem.reqJobHe || selectedItem.reqJob) && (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-400/40">
+                          {selectedItem.reqJobHe || selectedItem.reqJob}
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-2xl font-black text-white mt-0.5 tracking-tight">{selectedItem.name}</h3>
                     <div className="text-sm text-amber-200 font-medium">{selectedItem.nameHe}</div>
@@ -1624,196 +2374,484 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                 </div>
               </div>
 
-              {/* MESOWATCH LIVE MARKET ANALYTICS */}
-              {selectedItem.marketPrice && (
-                <div className="liquid-glass-accent-amber p-4 rounded-2xl border border-amber-400/40 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
-                      <span className="text-base">🪙</span>
-                      <span>{langMode === 'en' ? 'MesoWatch Live Market Analytics:' : 'מדד מחירי שוק חי (MesoWatch Market Analytics):'}</span>
-                    </div>
-                    {selectedItem.marketTrend !== undefined && selectedItem.marketTrend !== 0 && (
-                      <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-bold ${
-                        selectedItem.marketTrend > 0
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                      }`}>
-                        {langMode === 'en' ? '24h Trend:' : 'מגמת 24 שעות:'} {selectedItem.marketTrend > 0 ? '+' : ''}{(selectedItem.marketTrend * 100).toFixed(1)}% {selectedItem.marketTrend > 0 ? '📈' : '📉'}
+              {/* EQUIPMENT STATS & ATTRIBUTES GRID (MapleStory Pre-BigBang Classic Spec Card) */}
+              {(selectedItem.category === 'equips' || selectedItem.category === 'armors' || selectedItem.category === 'weapons' || selectedItem.category === 'claws' || selectedItem.reqLevel || selectedItem.pdd || selectedItem.slots !== undefined || selectedItem.reqDex || selectedItem.reqLuk || selectedItem.weaponAtt) && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 p-3.5 rounded-2xl bg-slate-950/60 border border-amber-400/30 shadow-inner">
+                  {/* Req Level */}
+                  <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      {langMode === 'en' ? 'Required Level' : 'רמה נדרשת'}
+                    </span>
+                    <span className="text-xs sm:text-sm font-black text-amber-300 font-mono">
+                      {selectedItem.reqLevel !== undefined && selectedItem.reqLevel !== null ? `Lv. ${selectedItem.reqLevel}` : (langMode === 'en' ? 'No Req (Lv. 0)' : 'ללא דרישה')}
+                    </span>
+                  </div>
+
+                  {/* Required Stats (DEX / LUK / STR / INT) */}
+                  <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      {langMode === 'en' ? 'Stat Requirements' : 'דרישות סטטים'}
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold text-emerald-300 font-mono">
+                      {(selectedItem.reqDex || selectedItem.reqLuk || selectedItem.reqStr || selectedItem.reqInt)
+                        ? [
+                            selectedItem.reqStr ? `STR ${selectedItem.reqStr}` : null,
+                            selectedItem.reqDex ? `DEX ${selectedItem.reqDex}` : null,
+                            selectedItem.reqInt ? `INT ${selectedItem.reqInt}` : null,
+                            selectedItem.reqLuk ? `LUK ${selectedItem.reqLuk}` : null,
+                          ].filter(Boolean).join(' • ')
+                        : (langMode === 'en' ? 'None (0 Req)' : 'ללא דרישות (0 Req)')}
+                    </span>
+                  </div>
+
+                  {/* Physical / Magical Defense or Attack */}
+                  <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      {selectedItem.weaponAtt ? (langMode === 'en' ? 'Weapon Attack' : 'התקפה פיזית') : (langMode === 'en' ? 'Weapon Defense' : 'הגנה פיזית (W.DEF)')}
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold text-cyan-300 font-mono">
+                      {selectedItem.weaponAtt
+                        ? `+${selectedItem.weaponAtt} W.ATT`
+                        : (selectedItem.pdd ? `+${selectedItem.pdd} W.DEF` : (selectedItem.stats?.match(/\+?(\d+)\s*W\.DEF/i)?.[0] || '—'))}
+                      {selectedItem.mdd ? ` • +${selectedItem.mdd} M.DEF` : ''}
+                    </span>
+                  </div>
+
+                  {/* Stat Bonuses (HP, MP, STR, DEX, INT, LUK, Speed, Jump) */}
+                  <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center">
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      {langMode === 'en' ? 'Stat Bonuses' : 'תוספות בונוס'}
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold text-sky-200 font-mono">
+                      {[
+                        selectedItem.str ? `+${selectedItem.str} STR` : null,
+                        selectedItem.dex ? `+${selectedItem.dex} DEX` : null,
+                        selectedItem.int ? `+${selectedItem.int} INT` : null,
+                        selectedItem.luk ? `+${selectedItem.luk} LUK` : null,
+                        selectedItem.hp ? `+${selectedItem.hp} MaxHP` : null,
+                        selectedItem.mp ? `+${selectedItem.mp} MaxMP` : null,
+                        selectedItem.speed ? `+${selectedItem.speed} Speed` : null,
+                        selectedItem.jump ? `+${selectedItem.jump} Jump` : null,
+                      ].filter(Boolean).join(', ') || (selectedItem.stats && !selectedItem.stats.includes('לשימוש') ? selectedItem.stats : 'בסיסי')}
+                    </span>
+                  </div>
+
+                  {/* Upgrade Slots */}
+                  <div className="liquid-glass-subtle p-2.5 rounded-xl border border-white/10 text-center col-span-2 sm:col-span-4 lg:col-span-1">
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      {langMode === 'en' ? 'Scroll Slots' : 'סלוטים לשדרוג'}
+                    </span>
+                    <span className="text-xs sm:text-sm font-black text-yellow-300 font-mono">
+                      {selectedItem.slots !== undefined && selectedItem.slots !== null ? `${selectedItem.slots} סלוטים` : (selectedItem.category === 'equips' || selectedItem.category === 'armors' ? '7 סלוטים' : '—')}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* ACQUISITION SUMMARY BADGES */}
+              <div className="flex items-center gap-2 flex-wrap py-2 border-b border-white/10">
+                <span className="text-[11px] font-bold text-slate-400">
+                  {langMode === 'en' ? 'Acquisition Summary:' : 'תקציר דרכי השגה:'}
+                </span>
+
+                {selectedItem.soldInShops && selectedItem.soldInShops.length > 0 && (
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 font-bold flex items-center gap-1.5 shadow-sm">
+                    <span>🏪</span>
+                    <span>{langMode === 'en' ? `NPC Shop (${selectedItem.soldInShops.length})` : `נמכר בחנות (${selectedItem.soldInShops.length})`}</span>
+                  </span>
+                )}
+
+                {allDropsForSelectedItem.length > 0 ? (
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-sky-500/20 text-sky-200 border border-sky-400/40 font-bold flex items-center gap-1.5 shadow-sm">
+                    <span>👾</span>
+                    <span>{langMode === 'en' ? `Monster Drops (${allDropsForSelectedItem.length})` : `שלל מפלצות (${allDropsForSelectedItem.length})`}</span>
+                  </span>
+                ) : (
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-slate-800/80 text-amber-200/90 border border-amber-400/20 font-medium flex items-center gap-1.5">
+                    <span>🚫</span>
+                    <span>{langMode === 'en' ? 'No Monster Drops' : 'לא נופל ממפלצות'}</span>
+                  </span>
+                )}
+
+                {selectedItem.requiredForQuests && selectedItem.requiredForQuests.length > 0 && (
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-teal-500/20 text-teal-200 border border-teal-400/40 font-bold flex items-center gap-1.5 shadow-sm">
+                    <span>📜</span>
+                    <span>{langMode === 'en' ? `Quest Req (${selectedItem.requiredForQuests.length})` : `דרוש למשימה (${selectedItem.requiredForQuests.length})`}</span>
+                  </span>
+                )}
+
+                {selectedItem.rewardFromQuests && selectedItem.rewardFromQuests.length > 0 && (
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 font-bold flex items-center gap-1.5 shadow-sm">
+                    <span>🎁</span>
+                    <span>{langMode === 'en' ? `Quest Reward (${selectedItem.rewardFromQuests.length})` : `פרס ממשימה (${selectedItem.rewardFromQuests.length})`}</span>
+                  </span>
+                )}
+
+                {selectedItem.marketPrice && (
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-200 border border-amber-400/40 font-bold flex items-center gap-1.5 shadow-sm">
+                    <span>🪙</span>
+                    <span>{langMode === 'en' ? 'Free Market' : 'שוק חופשי (FM)'}</span>
+                  </span>
+                )}
+
+                {/* MeowDB Safe to Sell? Protocol */}
+                {selectedItem.requiredForQuests && selectedItem.requiredForQuests.length > 0 ? (
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-rose-500/20 text-rose-200 border border-rose-400/50 font-bold flex items-center gap-1.5 shadow-sm" title={langMode === 'en' ? 'Needed for quests - keep in inventory!' : 'נדרש עבור משימות במשחק - שמור ואל תמכור לחנות!'}>
+                    <span>⚠️</span>
+                    <span>{langMode === 'en' ? 'MeowDB: Do NOT Sell (Quest Item)' : 'MeowDB: אל תמכור! (נדרש למשימות)'}</span>
+                  </span>
+                ) : (
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 font-bold flex items-center gap-1.5 shadow-sm" title={langMode === 'en' ? 'Safe to sell to NPC merchant for mesos' : 'בטוח למכור לסוחר NPC עבור מסוס'}>
+                    <span>✅</span>
+                    <span>{langMode === 'en' ? 'MeowDB: Safe to Sell' : 'MeowDB: בטוח למכירה ל-NPC'}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* MeowDB-Style Categorized Tabs for Item Info */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-950/70 rounded-2xl border border-sky-400/25 text-xs shadow-inner flex-wrap sm:flex-nowrap">
+                <button
+                  onClick={() => setItemDetailTab('drops')}
+                  className={`flex-1 py-2 px-2.5 rounded-xl font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                    itemDetailTab === 'drops'
+                      ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span>👾</span>
+                  <span>{langMode === 'en' ? 'Dropped By' : 'שלל מפלצות'}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/30">
+                    {allDropsForSelectedItem.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setItemDetailTab('shops')}
+                  className={`flex-1 py-2 px-2.5 rounded-xl font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                    itemDetailTab === 'shops'
+                      ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span>🏪</span>
+                  <span>{langMode === 'en' ? 'NPC Shops' : 'חנויות וסוחרים'}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/30">
+                    {selectedItem.soldInShops?.length || 0}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setItemDetailTab('quests')}
+                  className={`flex-1 py-2 px-2.5 rounded-xl font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                    itemDetailTab === 'quests'
+                      ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span>📜</span>
+                  <span>{langMode === 'en' ? 'Quests' : 'משימות'}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/30">
+                    {(selectedItem.requiredForQuests?.length || 0) + (selectedItem.rewardFromQuests?.length || 0)}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setItemDetailTab('stats')}
+                  className={`flex-1 py-2 px-2.5 rounded-xl font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                    itemDetailTab === 'stats'
+                      ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span>{langMode === 'en' ? 'Details & Market' : 'מידע ושוק'}</span>
+                </button>
+              </div>
+
+              {/* TAB 1: DROPPED BY MONSTERS */}
+              {itemDetailTab === 'drops' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                      <span>👾</span>
+                      <span>
+                        {allDropsForSelectedItem.length > 0
+                          ? (langMode === 'en' ? `Dropped by Monsters (${allDropsForSelectedItem.length} verified):` : `מפלצות שמפילות את הפריט (${allDropsForSelectedItem.length} מאומתות):`)
+                          : (langMode === 'en' ? 'Monster Drops Availability:' : 'בדיקת שלל מפלצות (Drops):')}
                       </span>
+                    </span>
+                    {allDropsForSelectedItem.length > 0 && (
+                      <span className="text-[10px] text-cyan-300">🔗 {langMode === 'en' ? 'Click monster for route & radar' : 'לחץ למעבר ישיר ופתיחת מפה'}</span>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <div className="liquid-glass-pill p-2.5 rounded-xl border border-white/10 text-center">
-                      <div className="text-[10px] text-slate-300">{langMode === 'en' ? 'Free Market Price' : 'מחיר שוק חופשי'}</div>
-                      <div className="text-sm font-black text-amber-300 font-mono mt-0.5">{selectedItem.marketPrice}</div>
+                  {allDropsForSelectedItem.length > 0 ? (
+                    <div className="space-y-2 max-h-[480px] overflow-y-auto p-1 scrollbar-thin">
+                      {allDropsForSelectedItem.map((mob, idx) => (
+                        <div
+                          key={idx}
+                          className="liquid-glass-subtle p-3.5 rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between text-xs hover:border-sky-400/50 transition gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-base">{mob.icon}</span>
+                              <span className="font-bold text-white text-sm">{mob.monsterName}</span>
+                              <span className="text-sky-300 font-medium">({mob.monsterNameHe})</span>
+                              <span className="text-[11px] text-amber-300 font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30">
+                                Lv. {mob.level}
+                              </span>
+                              {mob.isBoss && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-400/40 font-bold">
+                                  BOSS
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="text-slate-300 text-xs mt-1 flex items-center gap-2 flex-wrap">
+                              <span className="text-cyan-300 font-medium">📍 {mob.town}</span>
+                              {mob.locations && mob.locations.length > 0 && (
+                                <span className="text-slate-400">• מפות: {mob.locations.slice(0, 2).join(', ')}</span>
+                              )}
+                              <span className="text-emerald-300 font-mono text-[11px]">[{mob.dropRate}]</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {mob.mobObj && (
+                              <button
+                                onClick={() => {
+                                  setSelectedItem(mob.mobObj);
+                                  setSelectedType('monster');
+                                  setIsMapRadarModalOpen(true);
+                                }}
+                                className="px-3 py-1.5 rounded-xl liquid-glass-pill hover:bg-white/15 text-amber-300 text-[11px] font-bold border border-amber-400/30 transition shadow-sm"
+                                title={langMode === 'en' ? 'Open 2D Radar Map' : 'פתח סקירת שטח ומפה 2D'}
+                              >
+                                🗺️ {langMode === 'en' ? 'Map Radar' : 'מפה'}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => crossNavigate('monster', mob.monsterName)}
+                              className="px-3.5 py-1.5 rounded-xl liquid-glass-pill bg-sky-900/40 hover:bg-sky-800/60 text-sky-200 text-[11px] font-bold border border-sky-400/50 transition active:scale-95 shadow"
+                            >
+                              {langMode === 'en' ? 'View Monster 🧭' : 'הצג מפלצת ודרכי הגעה 🧭'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="liquid-glass-pill p-2.5 rounded-xl border border-white/10 text-center">
-                      <div className="text-[10px] text-slate-300">{langMode === 'en' ? 'Price Range (Low - High)' : 'טווח עסקאות (Low - High)'}</div>
-                      <div className="text-xs font-bold text-slate-100 font-mono mt-1">
-                        {selectedItem.marketLow ? selectedItem.marketLow.toLocaleString() : '—'} - {selectedItem.marketHigh ? selectedItem.marketHigh.toLocaleString() : '—'}
+                  ) : (
+                    <div className="liquid-glass-card p-4 rounded-2xl border border-amber-400/30 bg-amber-950/20 space-y-1.5">
+                      <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                        <span className="text-base">🚫</span>
+                        <span>{langMode === 'en' ? 'Does Not Drop From Monsters' : 'אינו נופל ממפלצות כלל במשחק'}</span>
                       </div>
+                      <p className="text-xs text-slate-200 leading-relaxed">
+                        {langMode === 'en'
+                          ? 'This item cannot be dropped by monsters in MapleStory Classic. You can acquire it through NPC shops, quest rewards, or player trades as shown in the tabs above.'
+                          : 'פריט זה אינו שלל של מפלצות בגרסה הקלאסית. ניתן להשיגו דרך חנויות NPC, משימות או מסחר כפי שמפורט בלשוניות למעלה.'}
+                      </p>
                     </div>
-                    <div className="liquid-glass-pill p-2.5 rounded-xl border border-white/10 text-center">
-                      <div className="text-[10px] text-slate-300">{langMode === 'en' ? 'Sold Volume' : 'יחידות שנמכרו בשוק'}</div>
-                      <div className="text-xs font-bold text-cyan-300 font-mono mt-1">
-                        {selectedItem.marketSold ? `${selectedItem.marketSold.toLocaleString()} יח'` : '—'}
-                      </div>
-                    </div>
-                    <div className="liquid-glass-pill p-2.5 rounded-xl border border-white/10 text-center">
-                      <div className="text-[10px] text-slate-300">{langMode === 'en' ? 'Active Player Shops' : 'חנויות שחקנים פעילות'}</div>
-                      <div className="text-xs font-bold text-sky-300 font-mono mt-1">
-                        {selectedItem.marketShops ? `${selectedItem.marketShops} חנויות` : 'סחר חופשי'}
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {/* Description */}
-              <div className="liquid-glass-subtle p-4 rounded-2xl border border-white/10 text-xs text-slate-200 leading-relaxed">
-                {selectedItem.desc}
-              </div>
-
-              {/* Thief Tip */}
-              {selectedItem.thiefTip && (
-                <div className="liquid-glass-accent-amber p-4 rounded-2xl border border-amber-400/40 space-y-1">
-                  <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
-                    <span>💡</span>
-                    <span>{langMode === 'en' ? 'Thief & Assassin Relevance:' : 'רלוונטיות לגנב ולמתנקש:'}</span>
-                  </div>
-                  <p className="text-xs text-amber-100 leading-relaxed">
-                    {selectedItem.thiefTip}
-                  </p>
-                </div>
-              )}
-
-              {/* SMART CROSS-LINKING: Sold in Shops */}
-              {selectedItem.soldInShops && selectedItem.soldInShops.length > 0 && (
-                <div className="space-y-2">
+              {/* TAB 2: SOLD IN NPC SHOPS */}
+              {itemDetailTab === 'shops' && (
+                <div className="space-y-3">
                   <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
                     <span>🏪</span>
-                    <span>{langMode === 'en' ? 'Sold in NPC Shops (Click NPC for route):' : 'נמכר בחנויות (לחץ על ה-NPC לפרטי הגעה):'}</span>
+                    <span>{langMode === 'en' ? 'Sold in NPC Shops (Click NPC for route & map):' : 'נמכר בחנויות (לחץ על ה-NPC לפרטי הגעה ומפה):'}</span>
                   </span>
-                  <div className="space-y-2">
-                    {selectedItem.soldInShops.map((shop, idx) => (
-                      <div key={idx} className="liquid-glass-subtle p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs">
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>{shop.shopName}</span>
-                            <span className="text-amber-300 font-mono">({shop.price})</span>
+
+                  {selectedItem.soldInShops && selectedItem.soldInShops.length > 0 ? (
+                    <div className="space-y-2 max-h-[480px] overflow-y-auto p-1 scrollbar-thin">
+                      {selectedItem.soldInShops.map((shop, idx) => {
+                        const rawNpcName = (shop.npc || shop.shopName || '').replace(/\s*\(.*?\)/g, '').trim();
+                        const matchedNpc = NPCS_DATABASE.find(n => 
+                          n.name.toLowerCase() === rawNpcName.toLowerCase() ||
+                          n.name.toLowerCase().includes(rawNpcName.toLowerCase()) ||
+                          rawNpcName.toLowerCase().includes(n.name.toLowerCase())
+                        );
+                        const displayShopName = matchedNpc 
+                          ? (langMode === 'en' ? `${matchedNpc.name} (${matchedNpc.town})` : `${matchedNpc.nameHe || matchedNpc.name}`)
+                          : shop.shopName;
+                        const displayTown = matchedNpc ? matchedNpc.town : (shop.town || 'Victoria Island');
+                        const displayMap = matchedNpc?.map;
+                        const targetNpcName = matchedNpc ? matchedNpc.name : rawNpcName;
+
+                        return (
+                          <div key={idx} className="liquid-glass-subtle p-3.5 rounded-2xl border border-white/10 flex items-center justify-between text-xs gap-3">
+                            <div className="min-w-0">
+                              <div className="font-bold text-white flex items-center gap-2 flex-wrap">
+                                <span>{displayShopName}</span>
+                                <span className="text-amber-300 font-mono font-bold">({shop.price || 'מחיר NPC'})</span>
+                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 font-medium">
+                                  📍 {displayTown}{displayMap ? ` • ${displayMap}` : ''}
+                                </span>
+                              </div>
+                              <div className="text-slate-300 text-xs mt-1 leading-relaxed">
+                                {matchedNpc?.map 
+                                  ? (langMode === 'en' ? `Find ${matchedNpc.name} in ${matchedNpc.map} (${matchedNpc.town}).` : `חפש את ${matchedNpc.name} ב-${matchedNpc.map} (${matchedNpc.town}).`)
+                                  : shop.directions}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => crossNavigate('npc', targetNpcName)}
+                              className="shrink-0 px-3.5 py-2 rounded-xl liquid-glass-pill hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold border border-cyan-400/40 transition active:scale-95 shadow"
+                            >
+                              {langMode === 'en' ? 'View NPC 👤' : 'הצג NPC 👤'}
+                            </button>
                           </div>
-                          <div className="text-slate-300 mt-1">{shop.directions}</div>
-                        </div>
-                        <button
-                          onClick={() => crossNavigate('npc', shop.npc)}
-                          className="shrink-0 px-3 py-1.5 rounded-xl liquid-glass-pill hover:bg-white/15 text-cyan-300 text-[11px] font-bold border border-cyan-400/30 transition"
-                        >
-                          {langMode === 'en' ? 'View NPC 👤' : 'הצג NPC 👤'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="liquid-glass-subtle p-4 rounded-2xl border border-white/10 text-xs text-slate-300">
+                      {langMode === 'en' ? 'This item is not sold in NPC shops.' : 'פריט זה אינו נמכר בחנויות של סוחרי NPC במשחק.'}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* SMART CROSS-LINKING: Dropped By */}
-              {selectedItem.droppedBy && selectedItem.droppedBy.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
-                      <span>👾</span>
-                      <span>{langMode === 'en' ? 'Dropped by Monsters (Click to inspect):' : 'מפלצות שמפילות את הפריט (לחץ למעבר ישיר למפלצת):'}</span>
-                    </span>
-                    <span className="text-[10px] text-cyan-300">🔗 קישור ישיר</span>
-                  </div>
-                  <div className="space-y-2">
-                    {selectedItem.droppedBy.map((mob, idx) => (
-                      <div
-                        key={idx}
-                        className="liquid-glass-subtle p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs hover:border-sky-400/50 transition"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white">{mob.monsterName}</span>
-                            <span className="text-sky-300">({mob.monsterNameHe})</span>
-                            <span className="text-[11px] text-amber-300 font-mono font-bold">Lv. {mob.level}</span>
+              {/* TAB 3: QUESTS */}
+              {itemDetailTab === 'quests' && (
+                <div className="space-y-4">
+                  {/* Required For Quests */}
+                  {selectedItem.requiredForQuests && selectedItem.requiredForQuests.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-bold text-teal-300 flex items-center gap-1.5">
+                        <span>📜</span>
+                        <span>{langMode === 'en' ? `Required for Quests (${selectedItem.requiredForQuests.length}):` : `נדרש עבור משימות במשחק (${selectedItem.requiredForQuests.length}):`}</span>
+                      </span>
+                      <div className="space-y-2">
+                        {selectedItem.requiredForQuests.map((q, idx) => (
+                          <div key={idx} className="liquid-glass-subtle p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs hover:border-teal-400/50 transition">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white">{q.questName}</span>
+                                <span className="text-teal-300 font-mono text-[11px] font-bold">{langMode === 'en' ? `Needs ${q.count}x` : `צריך ${q.count}x`}</span>
+                                <span className="text-amber-300 font-mono text-[10px]">רמה {q.reqLevel}+</span>
+                              </div>
+                              <div className="text-slate-300 text-[11px] mt-0.5">נותן המשימה: {q.npcName} {q.reward ? `• פרס: ${q.reward}` : ''}</div>
+                            </div>
+                            <button
+                              onClick={() => crossNavigate('quest', q.questName)}
+                              className="shrink-0 px-3 py-1.5 rounded-xl liquid-glass-pill bg-teal-900/40 hover:bg-teal-800/60 text-teal-200 text-[11px] font-bold border border-teal-400/40 transition"
+                            >
+                              {langMode === 'en' ? 'View Quest 📜' : 'הצג משימה 📜'}
+                            </button>
                           </div>
-                          <div className="text-slate-300 mt-0.5">עיר/אזור: {mob.town}</div>
-                        </div>
-
-                        <button
-                          onClick={() => crossNavigate('monster', mob.monsterName)}
-                          className="shrink-0 px-3 py-1.5 rounded-xl liquid-glass-pill bg-sky-900/40 hover:bg-sky-800/60 text-sky-200 text-[11px] font-bold border border-sky-400/50 transition"
-                        >
-                          {langMode === 'en' ? 'View Monster & Route 🧭' : 'הצג מפלצת ודרכי הגעה 🧭'}
-                        </button>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Reward From Quests */}
+                  {selectedItem.rewardFromQuests && selectedItem.rewardFromQuests.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                        <span>🎁</span>
+                        <span>{langMode === 'en' ? `Reward from Quests (${selectedItem.rewardFromQuests.length}):` : `מתקבל כפרס ממשימות (${selectedItem.rewardFromQuests.length}):`}</span>
+                      </span>
+                      <div className="space-y-2">
+                        {selectedItem.rewardFromQuests.map((q, idx) => (
+                          <div key={idx} className="liquid-glass-subtle p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs hover:border-emerald-400/50 transition">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white">{q.questName}</span>
+                                <span className="text-emerald-300 font-mono text-[11px] font-bold">{langMode === 'en' ? `Chance: ${q.chance}` : `סיכוי: ${q.chance}`}</span>
+                                <span className="text-amber-300 font-mono text-[10px]">רמה {q.reqLevel}+</span>
+                              </div>
+                              <div className="text-slate-300 text-[11px] mt-0.5">נותן המשימה: {q.npcName}</div>
+                            </div>
+                            <button
+                              onClick={() => crossNavigate('quest', q.questName)}
+                              className="shrink-0 px-3 py-1.5 rounded-xl liquid-glass-pill bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-200 text-[11px] font-bold border border-emerald-400/40 transition"
+                            >
+                              הצג משימה 📜
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!selectedItem.requiredForQuests || selectedItem.requiredForQuests.length === 0) &&
+                   (!selectedItem.rewardFromQuests || selectedItem.rewardFromQuests.length === 0) && (
+                    <div className="liquid-glass-subtle p-4 rounded-2xl border border-white/10 text-xs text-slate-300">
+                      {langMode === 'en' ? 'This item is not currently tied to any active quests.' : 'פריט זה אינו דרוש ואינו מתקבל כפרס ממשימות מוכרות במשחק.'}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* SMART CROSS-LINKING: Required For Quests */}
-              {selectedItem.requiredForQuests && selectedItem.requiredForQuests.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-teal-300 flex items-center gap-1.5">
-                      <span>📜</span>
-                      <span>{langMode === 'en' ? `Required for Quests (${selectedItem.requiredForQuests.length}):` : `נדרש עבור משימות במשחק (${selectedItem.requiredForQuests.length}):`}</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400">MesoWatch / MeowDB Quest Tracker</span>
+              {/* TAB 4: DETAILS & MARKET ANALYTICS */}
+              {itemDetailTab === 'stats' && (
+                <div className="space-y-4">
+                  {/* Description */}
+                  <div className="liquid-glass-subtle p-4 rounded-2xl border border-white/10 text-xs text-slate-200 leading-relaxed">
+                    {selectedItem.desc}
                   </div>
-                  <div className="space-y-2">
-                    {selectedItem.requiredForQuests.map((q, idx) => (
-                      <div key={idx} className="liquid-glass-subtle p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs hover:border-teal-400/50 transition">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white">{q.questName}</span>
-                            <span className="text-teal-300 font-mono text-[11px] font-bold">{langMode === 'en' ? `Needs ${q.count}x` : `צריך ${q.count}x`}</span>
-                            <span className="text-amber-300 font-mono text-[10px]">רמה {q.reqLevel}+</span>
-                          </div>
-                          <div className="text-slate-300 text-[11px] mt-0.5">נותן המשימה: {q.npcName} {q.reward ? `• פרס: ${q.reward}` : ''}</div>
-                        </div>
-                        <button
-                          onClick={() => crossNavigate('quest', q.questName)}
-                          className="shrink-0 px-3 py-1.5 rounded-xl liquid-glass-pill bg-teal-900/40 hover:bg-teal-800/60 text-teal-200 text-[11px] font-bold border border-teal-400/40 transition"
-                        >
-                          {langMode === 'en' ? 'View Quest 📜' : 'הצג משימה 📜'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* SMART CROSS-LINKING: Reward From Quests */}
-              {selectedItem.rewardFromQuests && selectedItem.rewardFromQuests.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                    <span>🎁</span>
-                    <span>{langMode === 'en' ? `Reward from Quests (${selectedItem.rewardFromQuests.length}):` : `מתקבל כפרס ממשימות (${selectedItem.rewardFromQuests.length}):`}</span>
-                  </span>
-                  <div className="space-y-2">
-                    {selectedItem.rewardFromQuests.map((q, idx) => (
-                      <div key={idx} className="liquid-glass-subtle p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs hover:border-emerald-400/50 transition">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white">{q.questName}</span>
-                            <span className="text-emerald-300 font-mono text-[11px] font-bold">{langMode === 'en' ? `Chance: ${q.chance}` : `סיכוי: ${q.chance}`}</span>
-                            <span className="text-amber-300 font-mono text-[10px]">רמה {q.reqLevel}+</span>
-                          </div>
-                          <div className="text-slate-300 text-[11px] mt-0.5">נותן המשימה: {q.npcName}</div>
-                        </div>
-                        <button
-                          onClick={() => crossNavigate('quest', q.questName)}
-                          className="shrink-0 px-3 py-1.5 rounded-xl liquid-glass-pill bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-200 text-[11px] font-bold border border-emerald-400/40 transition"
-                        >
-                          הצג משימה 📜
-                        </button>
+                  {/* Thief Tip */}
+                  {selectedItem.thiefTip && (
+                    <div className="liquid-glass-accent-amber p-4 rounded-2xl border border-amber-400/40 space-y-1">
+                      <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                        <span>💡</span>
+                        <span>{langMode === 'en' ? 'Class Relevance & Tip:' : 'רלוונטיות למקצוע וטיפ שימוש:'}</span>
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-xs text-amber-100 leading-relaxed">
+                        {selectedItem.thiefTip}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* MESOWATCH LIVE MARKET ANALYTICS */}
+                  {selectedItem.marketPrice && (
+                    <div className="liquid-glass-accent-amber p-4 rounded-2xl border border-amber-400/40 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                          <span className="text-base">🪙</span>
+                          <span>{langMode === 'en' ? 'Free Market Analytics:' : 'מדד מחירי שוק חופשי (FM Analytics):'}</span>
+                        </div>
+                        {selectedItem.marketTrend !== undefined && selectedItem.marketTrend !== 0 && (
+                          <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                            selectedItem.marketTrend > 0
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                          }`}>
+                            {langMode === 'en' ? '24h Trend:' : 'מגמת 24 שעות:'} {selectedItem.marketTrend > 0 ? '+' : ''}{(selectedItem.marketTrend * 100).toFixed(1)}% {selectedItem.marketTrend > 0 ? '📈' : '📉'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="liquid-glass-pill p-2.5 rounded-xl border border-white/10 text-center">
+                          <div className="text-[10px] text-slate-300">{langMode === 'en' ? 'FM Price' : 'מחיר ממוצע'}</div>
+                          <div className="text-sm font-black text-amber-300 font-mono mt-0.5">{selectedItem.marketPrice}</div>
+                        </div>
+                        <div className="liquid-glass-pill p-2.5 rounded-xl border border-white/10 text-center">
+                          <div className="text-[10px] text-slate-300">{langMode === 'en' ? 'Range (Low - High)' : 'טווח עסקאות'}</div>
+                          <div className="text-xs font-bold text-slate-100 font-mono mt-1">
+                            {selectedItem.marketLow ? selectedItem.marketLow.toLocaleString() : '—'} - {selectedItem.marketHigh ? selectedItem.marketHigh.toLocaleString() : '—'}
+                          </div>
+                        </div>
+                        <div className="liquid-glass-pill p-2.5 rounded-xl border border-white/10 text-center">
+                          <div className="text-[10px] text-slate-300">{langMode === 'en' ? 'Sold Volume' : 'יחידות שנמכרו'}</div>
+                          <div className="text-xs font-bold text-cyan-300 font-mono mt-1">
+                            {selectedItem.marketSold ? `${selectedItem.marketSold.toLocaleString()} יח'` : '—'}
+                          </div>
+                        </div>
+                        <div className="liquid-glass-pill p-2.5 rounded-xl border border-white/10 text-center">
+                          <div className="text-[10px] text-slate-300">{langMode === 'en' ? 'Active Shops' : 'חנויות פעילות'}</div>
+                          <div className="text-xs font-bold text-sky-300 font-mono mt-1">
+                            {selectedItem.marketShops ? `${selectedItem.marketShops} חנויות` : 'סחר חופשי'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1884,49 +2922,155 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
 
               {/* SMART CROSS-LINKING: Items Needed */}
               {selectedItem.itemsNeeded && selectedItem.itemsNeeded.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                    <span>📦</span>
-                    <span>{langMode === 'en' ? 'Required Items (Click to check drops & shops):' : 'חפצים דרושים (לחץ לבדיקת מקורות דרופ וחנויות):'}</span>
-                  </span>
-                  <div className="space-y-2">
-                    {selectedItem.itemsNeeded.map((it, idx) => (
-                      <div key={idx} className="liquid-glass-subtle p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs">
-                        <div>
-                          <span className="font-bold text-white">{it.count}x {it.item}</span>
-                          <span className="text-slate-300 block text-[11px] mt-0.5">{it.source}</span>
-                        </div>
-                        <button
-                          onClick={() => crossNavigate('item', it.item)}
-                          className="px-3 py-1.5 rounded-xl liquid-glass-pill hover:border-amber-400/60 text-amber-300 text-[11px] font-bold border border-white/10 transition"
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                      <span className="text-base">📦</span>
+                      <span>{langMode === 'en' ? 'Required Items & Collection Guide:' : 'חפצים דרושים ומדריך איסוף (לחץ למידע מלא):'}</span>
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {selectedItem.itemsNeeded.length} {langMode === 'en' ? 'items' : 'חפצים לאיסוף'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {selectedItem.itemsNeeded.map((it, idx) => {
+                      const resolvedItem = resolveItemData(it.item);
+                      const hasDrops = resolvedItem?.dropsFrom && resolvedItem.dropsFrom.length > 0;
+                      const hasShops = resolvedItem?.soldInShops && resolvedItem.soldInShops.length > 0;
+
+                      return (
+                        <div 
+                          key={idx} 
+                          className="liquid-glass-card p-3.5 sm:p-4 rounded-2xl border border-white/15 hover:border-amber-400/40 transition bg-slate-950/70 shadow-lg space-y-2.5"
                         >
-                          {langMode === 'en' ? 'Inspect Item 💎' : 'בדוק פריט 💎'}
-                        </button>
-                      </div>
-                    ))}
+                          <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {/* Item Icon */}
+                              <div className="w-12 h-12 rounded-2xl liquid-glass-pill p-1.5 flex items-center justify-center border border-white/20 shadow-md shrink-0 bg-slate-900/80">
+                                {resolvedItem?.iconUrl ? (
+                                  <img 
+                                    src={resolvedItem.iconUrl} 
+                                    alt={it.item} 
+                                    className="w-8 h-8 object-contain pixelated" 
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <span className="text-2xl">{resolvedItem?.icon || '📦'}</span>
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-400/30 font-black font-mono text-xs">
+                                    {it.count}x
+                                  </span>
+                                  <h4 className="text-sm sm:text-base font-black text-white truncate">
+                                    {resolvedItem?.nameHe || it.item}
+                                  </h4>
+                                  {resolvedItem?.name && resolvedItem.name !== it.item && (
+                                    <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
+                                      ({resolvedItem.name})
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                                  {it.source || resolvedItem?.obtainTypeHe || resolvedItem?.desc}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Direct Action Link to Item */}
+                            <button
+                              onClick={() => crossNavigate('item', it.item)}
+                              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-1.5 shrink-0 border border-yellow-200 cursor-pointer"
+                              title={langMode === 'en' ? 'Inspect full drop sources, shops & prices' : 'בדוק מאיפה ואיך לאסוף, מפלצות וחנויות'}
+                            >
+                              <span>🔍</span>
+                              <span>{langMode === 'en' ? 'Where & How to Get' : 'איפה ואיך לאסוף?'}</span>
+                              <span className="text-[10px]">↗</span>
+                            </button>
+                          </div>
+
+                          {/* Quick Drop Monster Pills if available */}
+                          {hasDrops && (
+                            <div className="pt-2 border-t border-white/10 flex items-center gap-1.5 flex-wrap text-xs">
+                              <span className="text-[11px] text-slate-400 font-bold">
+                                {langMode === 'en' ? 'Drops from mobs:' : 'מפלצות שמפילות (לחץ למפה):'}
+                              </span>
+                              {resolvedItem.dropsFrom.slice(0, 4).map((m, mIdx) => (
+                                <button
+                                  key={mIdx}
+                                  onClick={() => crossNavigate('monster', m.monsterName)}
+                                  className="px-2.5 py-1 rounded-lg liquid-glass-pill hover:bg-sky-500/20 hover:border-sky-400/50 text-sky-200 text-[11px] font-bold border border-white/10 transition flex items-center gap-1 cursor-pointer"
+                                  title={`הצג מפה ופרטי ציד עבור ${m.monsterName}`}
+                                >
+                                  <span>👾</span>
+                                  <span>{m.monsterNameHe || m.monsterName}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono">({m.dropRate || `רמה ${m.level}`})</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Quick Shop info if available */}
+                          {hasShops && (
+                            <div className="pt-2 border-t border-white/10 flex items-center gap-1.5 flex-wrap text-xs">
+                              <span className="text-[11px] text-emerald-400 font-bold">
+                                {langMode === 'en' ? 'Sold by NPC:' : 'נמכר אצל NPC:'}
+                              </span>
+                              {resolvedItem.soldInShops.map((s, sIdx) => (
+                                <button
+                                  key={sIdx}
+                                  onClick={() => crossNavigate('npc', s.npc || s.shopName)}
+                                  className="px-2.5 py-1 rounded-lg liquid-glass-pill hover:bg-emerald-500/20 hover:border-emerald-400/50 text-emerald-200 text-[11px] font-bold border border-white/10 transition flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>🏪</span>
+                                  <span>{s.shopName || s.npc}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono">({s.town})</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               {/* SMART CROSS-LINKING: Monsters to Hunt */}
               {selectedItem.monstersToHunt && selectedItem.monstersToHunt.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                <div className="space-y-2.5">
+                  <span className="text-xs font-black text-sky-300 flex items-center gap-1.5">
                     <span>👾</span>
-                    <span>{langMode === 'en' ? 'Monsters to Hunt (Click for travel route):' : 'מפלצות לציד (לחץ להצגת דרכי הגעה):'}</span>
+                    <span>{langMode === 'en' ? 'Monsters to Hunt (Click for map & route):' : 'מפלצות לציד (לחץ להצגת מפה ודרכי הגעה):'}</span>
                   </span>
-                  <div className="space-y-2">
-                    {selectedItem.monstersToHunt.map((m, idx) => (
-                      <div key={idx} className="liquid-glass-subtle p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs">
-                        <span className="font-bold text-white">{m.count}x {m.monster}</span>
-                        <button
-                          onClick={() => crossNavigate('monster', m.monster)}
-                          className="px-3 py-1.5 rounded-xl liquid-glass-pill bg-sky-900/40 hover:bg-sky-800/60 text-sky-200 text-[11px] font-bold border border-sky-400/40 transition"
-                        >
-                          {langMode === 'en' ? 'View Monster 🧭' : 'הצג מפלצת 🧭'}
-                        </button>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedItem.monstersToHunt.map((m, idx) => {
+                      const mobData = MONSTERS_DATABASE.find(mob => mob.name.toLowerCase() === m.monster.toLowerCase() || (mob.nameHe && mob.nameHe.includes(m.monster)));
+                      return (
+                        <div key={idx} className="liquid-glass-card p-3 rounded-2xl border border-white/10 flex items-center justify-between gap-2 text-xs bg-slate-950/60">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-xl p-1.5 rounded-xl bg-sky-950/60 border border-sky-400/20 shrink-0">
+                              {mobData?.icon || '👾'}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="font-bold text-white block truncate">{m.count}x {mobData?.nameHe || m.monster}</span>
+                              <span className="text-[10px] text-slate-400 font-mono block">
+                                {mobData?.town ? `עיר: ${mobData.town}` : (mobData?.maps?.[0]?.nameHe || 'מפה קלאסית')}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => crossNavigate('monster', m.monster)}
+                            className="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 text-sky-200 text-xs font-bold border border-sky-400/40 transition shrink-0 cursor-pointer"
+                          >
+                            {langMode === 'en' ? 'Map 🧭' : 'נווט למפה 🧭'}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1963,10 +3107,22 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                 <div className="flex flex-wrap gap-2">
                   {selectedItem.rewards.map((r, idx) => {
                     const text = typeof r === 'string' ? r : (r.reward || JSON.stringify(r));
+                    const possibleItem = ITEMS_DATABASE.find(i => text.includes(i.name) || (i.nameHe && text.includes(i.nameHe)));
                     return (
-                      <span key={idx} className="liquid-glass-pill px-3.5 py-1.5 rounded-xl border border-emerald-400/30 text-xs text-emerald-200 font-bold shadow-sm">
-                        {text}
-                      </span>
+                      <div key={idx} className="flex items-center gap-2 flex-wrap">
+                        <span className="liquid-glass-pill px-3.5 py-1.5 rounded-xl border border-emerald-400/30 text-xs text-emerald-200 font-bold shadow-sm">
+                          {text}
+                        </span>
+                        {possibleItem && (
+                          <button
+                            onClick={() => crossNavigate('item', possibleItem.name)}
+                            className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-400/40 font-bold transition cursor-pointer"
+                            title={`בדוק פרטים על ${possibleItem.name}`}
+                          >
+                            <span>צפה בפרס 💎</span>
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -1979,9 +3135,16 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
             <div className="space-y-5">
               <div className="flex items-center justify-between border-b border-white/10 pb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-4xl liquid-glass-pill p-3 rounded-2xl border border-white/20 shadow-lg shrink-0">
-                    {selectedItem.icon}
-                  </span>
+                  <div className="w-16 h-16 min-w-16 rounded-2xl liquid-glass-pill p-2 border border-white/20 shadow-xl flex items-center justify-center bg-slate-900/50 shrink-0">
+                    <GameAssetImage
+                      src={selectedItem.renderUrl || selectedItem.iconUrl}
+                      fallbackSrc={selectedItem.iconUrl}
+                      alt={selectedItem.name}
+                      emojiFallback={selectedItem.icon}
+                      size="lg"
+                      className="scale-125 hover:scale-150 transition duration-300"
+                    />
+                  </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-emerald-300 block truncate">{selectedItem.categoryName} • {selectedItem.town}</span>
                     <h3 className="text-2xl font-black text-white mt-0.5 tracking-tight truncate">{selectedItem.name}</h3>
@@ -2117,20 +3280,20 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
               {/* Quick specs grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div className="liquid-glass-subtle p-3 rounded-xl border border-white/10 text-center">
-                  <span className="text-[10px] text-slate-400 block">מהירות תקיפה</span>
+                  <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Attack Speed' : 'מהירות תקיפה'}</span>
                   <span className="text-xs font-bold text-sky-200 font-mono">{selectedItem.speed}</span>
                 </div>
                 <div className="liquid-glass-subtle p-3 rounded-xl border border-white/10 text-center">
-                  <span className="text-[10px] text-slate-400 block">דרישות סטטים</span>
-                  <span className="text-xs font-bold text-emerald-200 font-mono">{selectedItem.reqStats || `DEX ${selectedItem.reqDex || 0}`}</span>
+                  <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Stat Requirements' : 'דרישות סטטים'}</span>
+                  <span className="text-xs font-bold text-emerald-200 font-mono">{formatStatReqs(selectedItem, langMode === 'en')}</span>
                 </div>
                 <div className="liquid-glass-subtle p-3 rounded-xl border border-white/10 text-center">
-                  <span className="text-[10px] text-slate-400 block">סלוטים לגלילה</span>
+                  <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Scroll Slots' : 'סלוטים לגלילה'}</span>
                   <span className="text-xs font-bold text-amber-200 font-mono">{selectedItem.slots || 7} Slots</span>
                 </div>
                 <div className="liquid-glass-subtle p-3 rounded-xl border border-white/10 text-center">
-                  <span className="text-[10px] text-slate-400 block">התאמת בילד</span>
-                  <span className="text-xs font-bold text-purple-200 font-mono">{selectedItem.suitableForHe || 'כל הבילדים'}</span>
+                  <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Recommended Build' : 'התאמת בילד'}</span>
+                  <span className="text-xs font-bold text-purple-200 font-mono">{formatBuildFit(selectedItem, langMode === 'en')}</span>
                 </div>
               </div>
 
@@ -2143,7 +3306,7 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
               <div className="liquid-glass-card p-4 rounded-2xl border border-white/15 space-y-2">
                 <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
                   <span>📍</span>
-                  <span>איך ומאיפה משיגים:</span>
+                  <span>{langMode === 'en' ? 'How & Where to Obtain:' : 'איך ומאיפה משיגים:'}</span>
                 </span>
                 <div className="space-y-1.5">
                   {Array.isArray(selectedItem.obtain) ? (
@@ -2164,7 +3327,7 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                 <div className="liquid-glass-accent-cyan p-4 rounded-2xl border border-sky-400/40 space-y-1">
                   <div className="flex items-center gap-2 text-cyan-300 font-bold text-xs">
                     <span>💡</span>
-                    <span>טיפ שדרוג ושימוש:</span>
+                    <span>{langMode === 'en' ? 'Upgrade & Tactical Tip:' : 'טיפ שדרוג ושימוש:'}</span>
                   </div>
                   <p className="text-xs text-cyan-100 leading-relaxed">{selectedItem.tip}</p>
                 </div>
@@ -2199,7 +3362,7 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-amber-300">
-                      {selectedItem.secondaryTypeHe || 'ציוד משני ותחמושת'}
+                      {langMode === 'en' ? (selectedItem.secondaryType || 'Secondary Gear & Ammo') : (selectedItem.secondaryTypeHe || 'ציוד משני ותחמושת')}
                     </span>
                     <h3 className="text-2xl font-black text-white mt-0.5 tracking-tight truncate">{selectedItem.name}</h3>
                     <div className="text-sm text-sky-200 font-medium">{selectedItem.nameHe}</div>
@@ -2279,6 +3442,26 @@ export default function UnifiedDatabase({ initialQuery = '', initialCategory = '
                 <span className="text-xs font-black text-cyan-300 block">{langMode === 'en' ? 'How to Obtain:' : 'איך להשיג:'}</span>
                 <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">{selectedItem.howToGet}</p>
               </div>
+            </div>
+          )}
+
+          {/* BOTTOM BACK BUTTON FOR CONVENIENCE */}
+          {navHistory.length > 0 && (
+            <div className="pt-6 mt-6 border-t border-white/10 flex items-center justify-between flex-wrap gap-3">
+              <button
+                onClick={handleGoBack}
+                className="flex items-center gap-2.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 transition transform active:scale-95"
+              >
+                <span className="text-sm">↩️</span>
+                <span>
+                  {langMode === 'en'
+                    ? `Back to ${navHistory[navHistory.length - 1]?.item?.name || 'Previous'}`
+                    : `חזור אל ${navHistory[navHistory.length - 1]?.item?.nameHe || navHistory[navHistory.length - 1]?.item?.name || 'הקודם'}`}
+                </span>
+              </button>
+              <span className="text-[11px] text-slate-400 font-mono">
+                {langMode === 'en' ? 'Tip: Press Alt + Left Arrow or Mouse Back Button to go back quickly' : 'טיפ: לחץ Alt + חץ שמאלה או כפתור חזרה בעכבר'}
+              </span>
             </div>
           )}
 

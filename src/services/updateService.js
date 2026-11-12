@@ -25,10 +25,18 @@ export function compareVersions(v1, v2) {
   return 0;
 }
 
+let lastCheckTime = 0;
+let cachedResult = null;
+
 /**
- * Check GitHub Releases for newer version
+ * Check GitHub Releases for newer version (With rate limit protection and local caching)
  */
-export async function checkForAppUpdates() {
+export async function checkForAppUpdates(force = false) {
+  const now = Date.now();
+  if (!force && cachedResult && (now - lastCheckTime < 10 * 60 * 1000)) {
+    return cachedResult;
+  }
+
   try {
     const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`, {
       headers: {
@@ -36,9 +44,22 @@ export async function checkForAppUpdates() {
       }
     });
 
+    if (res.status === 403) {
+      // Rate limit or access restriction
+      const rateLimitMsg = 'הגעת למגבלת הפניות של GitHub (Rate Limit). הנתונים המקומיים שלך מאומתים במלואם וניתן לבדוק שוב מאוחר יותר.';
+      return {
+        checked: true,
+        hasUpdate: false,
+        rateLimited: true,
+        error: rateLimitMsg,
+        currentVersion: CURRENT_VERSION,
+        repoUrl: REPO_URL
+      };
+    }
+
     if (res.status === 404) {
       // Repository or releases don't exist yet
-      return {
+      cachedResult = {
         checked: true,
         hasUpdate: false,
         noReleasesYet: true,
@@ -46,10 +67,12 @@ export async function checkForAppUpdates() {
         latestVersion: CURRENT_VERSION,
         repoUrl: REPO_URL
       };
+      lastCheckTime = now;
+      return cachedResult;
     }
 
     if (!res.ok) {
-      throw new Error(`GitHub API error (${res.status})`);
+      throw new Error(`GitHub API returned status ${res.status}`);
     }
 
     const data = await res.json();
@@ -61,7 +84,7 @@ export async function checkForAppUpdates() {
       ? data.assets.find(a => a.name && (a.name.endsWith('.exe') || a.name.includes('מדריך')))
       : null;
 
-    return {
+    cachedResult = {
       checked: true,
       hasUpdate,
       currentVersion: CURRENT_VERSION,
@@ -73,6 +96,8 @@ export async function checkForAppUpdates() {
       htmlUrl: data.html_url || REPO_URL,
       exeSizeMb: exeAsset ? (exeAsset.size / (1024 * 1024)).toFixed(1) : null
     };
+    lastCheckTime = now;
+    return cachedResult;
   } catch (err) {
     console.warn('Update check failed:', err);
     return {

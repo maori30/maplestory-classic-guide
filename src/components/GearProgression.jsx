@@ -10,12 +10,54 @@ import {
   getDropIconFallback
 } from '../data/itemAssets.js';
 
+export const formatStatReqs = (item, isEnglish) => {
+  if (!item) return '';
+  const raw = item.reqStats || (item.reqDex ? `DEX ${item.reqDex}` : '');
+  if (!isEnglish || !raw) return raw || 'ללא דרישות סטטים';
+  
+  return raw
+    .replace(/ללא דרישות סטטים/g, 'No Stat Requirements')
+    .replace(/משתמש בשתי הידיים/g, 'Two-Handed Weapon')
+    .replace(/דקסלס טהור!/g, 'Pure Dexless')
+    .replace(/דקסלס\/לאקלס טהור!/g, 'Pure Dexless / Lukless')
+    .replace(/סטרלס טהור!/g, 'Pure Strless')
+    .replace(/0 לדקסלס התחלתי/g, 'Base 25 for Dexless')
+    .replace(/רק 25 לדקסלס/g, 'Base 25 for Dexless')
+    .replace(/או שימוש בגרסת Dexless/g, 'or Dexless variant')
+    .replace(/ללא דרישת LUK כלל!/g, 'No LUK requirement')
+    .replace(/ללא דרישת LUK/g, 'No LUK requirement')
+    .replace(/מתאים ל-Lukless/g, 'Suitable for Lukless')
+    .replace(/סלוטים לגלילה/g, 'Scroll Slots')
+    .replace(/סלוטים/g, 'Slots')
+    .replace(/מכפיל נזק גבוה: 1.49 בדקירה, 1.41 בסוויפ/g, 'High Multiplier: 1.49x Thrust, 1.41x Swing');
+};
+
+export const formatBuildFit = (item, isEnglish) => {
+  if (!item) return '';
+  if (!isEnglish) return item.suitableForHe || 'כל הבילדים';
+  if (item.suitableFor === 'dexless') return 'Dexless Only';
+  if (item.suitableFor === 'lukless') return 'Lukless Only';
+  if (item.suitableFor === 'strless') return 'Strless Only';
+  if (item.suitableFor === 'both' || item.suitableFor === 'all') return 'All Builds';
+  if (item.suitableFor === 'standard' || item.suitableFor === 'regular') return 'Standard Build';
+  return item.suitableFor || 'All Builds';
+};
+
+export const formatGearStats = (statsStr, isEnglish) => {
+  if (!statsStr) return '';
+  if (!isEnglish) return statsStr;
+  return statsStr
+    .replace(/5 עד 7 סלוטים פתוחים למגילות/g, '5 to 7 Upgrade Slots')
+    .replace(/\+10 Speed בסיסי, 10 סלוטים לגלילה/g, '+10 Base Speed, 10 Scroll Slots');
+};
+
 export default function GearProgression({
   currentLevel = 10,
   currentBuild = 'dexless',
   activeJobData,
   onNavigateToSearch
 }) {
+  const { langMode, isRTL, t } = useLanguage();
   const jobId = activeJobData?.id || 'assassin';
   const jobWeaponsData = WEAPONS_BY_JOB[jobId] || WEAPONS_BY_JOB['assassin'];
   const isAssassin = jobId === 'assassin';
@@ -250,16 +292,16 @@ export default function GearProgression({
                     <span className="text-xs font-bold text-sky-200 font-mono">{selectedWeapon.speed}</span>
                   </div>
                   <div className="liquid-glass-subtle p-3 rounded-xl border border-white/10 text-center">
-                    <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Stat Reqs' : 'דרישות סטטים'}</span>
-                    <span className="text-xs font-bold text-emerald-200 font-mono">{selectedWeapon.reqStats || `DEX ${selectedWeapon.reqDex || 0}`}</span>
+                    <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Stat Requirements' : 'דרישות סטטים'}</span>
+                    <span className="text-xs font-bold text-emerald-200 font-mono">{formatStatReqs(selectedWeapon, langMode === 'en')}</span>
                   </div>
                   <div className="liquid-glass-subtle p-3 rounded-xl border border-white/10 text-center">
                     <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Scroll Slots' : 'סלוטים לגלילה'}</span>
                     <span className="text-xs font-bold text-amber-200 font-mono">{selectedWeapon.slots || 7} Slots</span>
                   </div>
                   <div className="liquid-glass-subtle p-3 rounded-xl border border-white/10 text-center">
-                    <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Build Fit' : 'התאמת בילד'}</span>
-                    <span className="text-xs font-bold text-purple-200 font-mono">{selectedWeapon.suitableForHe || 'כל הבילדים'}</span>
+                    <span className="text-[10px] text-slate-400 block">{langMode === 'en' ? 'Recommended Build' : 'התאמת בילד'}</span>
+                    <span className="text-xs font-bold text-purple-200 font-mono">{formatBuildFit(selectedWeapon, langMode === 'en')}</span>
                   </div>
                 </div>
 
@@ -273,14 +315,14 @@ export default function GearProgression({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
                       <span>📍</span>
-                      <span>איך ומאיפה משיגים את הנשק:</span>
+                      <span>{langMode === 'en' ? 'How & Where to Obtain Weapon:' : 'איך ומאיפה משיגים את הנשק:'}</span>
                     </span>
                     {onNavigateToSearch && (
                       <button
                         onClick={() => onNavigateToSearch(selectedWeapon.name)}
                         className="text-[11px] text-cyan-300 hover:text-cyan-200 font-bold underline transition"
                       >
-                        חפש במאגר המאוחד ↗
+                        {langMode === 'en' ? 'Search in Database ↗' : 'חפש במאגר המאוחד ↗'}
                       </button>
                     )}
                   </div>
@@ -303,7 +345,7 @@ export default function GearProgression({
                   <div className="liquid-glass-card bg-amber-950/20 border-amber-400/40 p-4 rounded-2xl space-y-1">
                     <div className="flex items-center gap-2 text-amber-300 font-black text-xs">
                       <span>💡</span>
-                      <span>טיפ שדרוג ושימוש טקטי:</span>
+                      <span>{langMode === 'en' ? 'Upgrade & Tactical Tip:' : 'טיפ שדרוג ושימוש טקטי:'}</span>
                     </div>
                     <p className="text-xs text-amber-200 leading-relaxed">
                       {selectedWeapon.tip}
@@ -321,7 +363,7 @@ export default function GearProgression({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 space-y-3">
             <div className="text-xs font-black text-slate-300 uppercase tracking-wider mb-2">
-              {secondaryTypeLabel} עבור {jobTitle}:
+              {secondaryTypeLabel} {langMode === 'en' ? 'for' : 'עבור'} {jobTitle}:
             </div>
             {jobWeaponsData.secondary.map(sec => (
               <div
@@ -350,7 +392,7 @@ export default function GearProgression({
                     </div>
                   </div>
                   <div className="text-emerald-300 font-mono font-black text-sm">
-                    {sec.att || sec.stats || 'פריט משני'}
+                    {formatStatReqs(sec, langMode === 'en') || sec.att || sec.stats || (langMode === 'en' ? 'Secondary' : 'פריט משני')}
                   </div>
                 </div>
               </div>
@@ -377,28 +419,28 @@ export default function GearProgression({
                     </div>
                   </div>
                   <div className="text-left font-mono liquid-glass-pill px-4 py-2 rounded-2xl border border-white/20">
-                    <span className="text-slate-300 text-xs block">תוספת / תכונה:</span>
+                    <span className="text-slate-300 text-xs block">{langMode === 'en' ? 'Stats / Attributes:' : 'תוספת / תכונה:'}</span>
                     <span className="text-xl font-black text-emerald-300">
-                      {selectedSecondary.att || selectedSecondary.stats || 'ציוד משני'}
+                      {formatStatReqs(selectedSecondary, langMode === 'en') || selectedSecondary.att || selectedSecondary.stats || (langMode === 'en' ? 'Secondary' : 'ציוד משני')}
                     </span>
                   </div>
                 </div>
 
                 {selectedSecondary.quantity && (
                   <div className="liquid-glass-subtle p-3 rounded-xl border border-white/10 flex items-center justify-between text-xs font-mono">
-                    <span className="text-slate-300">קיבולת לחבילה / סט:</span>
-                    <span className="text-amber-300 font-bold">{selectedSecondary.quantity} יחידות בטעינה</span>
+                    <span className="text-slate-300">{langMode === 'en' ? 'Capacity per Stack:' : 'קיבולת לחבילה / סט:'}</span>
+                    <span className="text-amber-300 font-bold">{selectedSecondary.quantity} {langMode === 'en' ? 'units per recharge' : 'יחידות בטעינה'}</span>
                   </div>
                 )}
 
                 <div className="liquid-glass-card p-4 rounded-2xl border border-white/15 space-y-1.5">
-                  <span className="text-xs font-black text-cyan-300 block">איך ומאיפה משיגים:</span>
+                  <span className="text-xs font-black text-cyan-300 block">{langMode === 'en' ? 'How & Where to Obtain:' : 'איך ומאיפה משיגים:'}</span>
                   <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">{selectedSecondary.whereToGet}</p>
                 </div>
 
                 {selectedSecondary.price && (
                   <div className="liquid-glass-card p-4 rounded-2xl border border-white/15 space-y-1.5">
-                    <span className="text-xs font-black text-amber-300 block">הערכת מחיר שוק וסחר:</span>
+                    <span className="text-xs font-black text-amber-300 block">{langMode === 'en' ? 'Market & Trade Value:' : 'הערכת מחיר שוק וסחר:'}</span>
                     <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">{selectedSecondary.price}</p>
                   </div>
                 )}
@@ -407,7 +449,7 @@ export default function GearProgression({
                   <div className="liquid-glass-card bg-amber-950/20 border-amber-400/40 p-4 rounded-2xl space-y-1">
                     <div className="flex items-center gap-2 text-amber-300 font-black text-xs">
                       <span>💡</span>
-                      <span>טיפ שימוש ושדרוג:</span>
+                      <span>{langMode === 'en' ? 'Usage & Upgrade Tip:' : 'טיפ שימוש ושדרוג:'}</span>
                     </div>
                     <p className="text-xs text-amber-200 leading-relaxed">
                       {selectedSecondary.tip}
@@ -437,15 +479,15 @@ export default function GearProgression({
                     />
                   </div>
                   <div>
-                    <span className="text-xs font-black text-amber-300 font-mono">רמה {gear.reqLevel}</span>
+                    <span className="text-xs font-black text-amber-300 font-mono">{langMode === 'en' ? `Lv. ${gear.reqLevel}` : `רמה ${gear.reqLevel}`}</span>
                     <h4 className="text-base font-black text-white">{gear.name}</h4>
                   </div>
                 </div>
-                <span className="text-xs font-black text-emerald-300 font-mono">{gear.stats}</span>
+                <span className="text-xs font-black text-emerald-300 font-mono">{formatGearStats(gear.stats, langMode === 'en')}</span>
               </div>
               <p className="text-xs text-slate-200 leading-relaxed">{gear.desc}</p>
               <div className="liquid-glass-card p-3 rounded-2xl border border-white/15 text-xs text-cyan-300">
-                <span className="font-bold">מקור: </span>{gear.howToGet}
+                <span className="font-bold">{langMode === 'en' ? 'Source: ' : 'מקור: '}</span>{gear.howToGet}
               </div>
             </div>
           ))}

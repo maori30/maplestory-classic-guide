@@ -1,4 +1,5 @@
 // mapsDatabase.js - Authentic Classic MapleStory Map Database & Live Hidden Portals
+import { lookupMapByLocation } from './mapsLookup.js';
 
 // Local Bundled Minimap Imports for Instant Offline Access
 import ariantNorthMinimap from '../assets/maps/ariant-north-minimap.png';
@@ -436,6 +437,40 @@ export const REAL_MAPS_REGISTRY = {
     mobsPresent: ['Drake Lv.50', 'Red Drake Lv.60', 'Ice Drake Lv.64'],
     mobSpawnRate: 'ספאון דרקונים איכותי עם נפילות נשק שוות',
     snipingSpotHe: 'פלטפורמות סלע עליונות מעל ראשי הדרקונים'
+  },
+
+  // 12. Thicket Around the Beach III (Mano Boss Map)
+  'thicket_beach_3': {
+    mapId: 104000400,
+    nameHe: 'סבך סביב החוף 3 (Thicket Around the Beach III)',
+    nameEn: 'Victoria Road: Thicket Around the Beach III',
+    streetName: 'Victoria Road',
+    town: 'Lith Harbor',
+    townHe: 'ליט הארבור',
+    minimapUrl: 'https://maplestory.io/api/gms/62/map/104000400/minimap',
+    renderUrl: 'https://maplestory.io/api/gms/62/map/104000400/render',
+    bgTheme: 'beach',
+    terrainDescHe: 'רצועת חוף ירוקה עם סבך עשב, עצי חוף ומדפי סלע מעל פני הים. הבוס מאנו (Mano) משוטט על רצועת הדשא התחתונה לצד חלזונות כחולים ואדומים.',
+    mobsPresent: ['Mano (בוס Lv.20)', 'Snail Lv.1', 'Blue Snail Lv.2', 'Red Snail Lv.5', 'Slime Lv.6', 'Stump Lv.4'],
+    mobSpawnRate: 'מאנו מופיע במרכז המפה פעם ב-30 עד 45 דקות. מוקף חלזונות כחולים ואדומים.',
+    snipingSpotHe: 'עמוד על מדף הסלעים הגבוה בצד שמאל (מעל פתח הכניסה) ותקוף מטווח בטוח מעל מאנו והחלזונות שהוא מזמן.'
+  },
+
+  // 13. Kerning City Construction Site (Octopus)
+  'kerning_construction': {
+    mapId: 103010000,
+    nameHe: 'אתר הבנייה בקרנינג (Kerning City Construction Site)',
+    nameEn: 'Victoria Road: Kerning City Construction Site',
+    streetName: 'Victoria Road',
+    town: 'Kerning City',
+    townHe: 'קרנינג סיטי',
+    minimapUrl: 'https://maplestory.io/api/gms/62/map/103010000/minimap',
+    renderUrl: 'https://maplestory.io/api/gms/62/map/103010000/render',
+    bgTheme: 'construction',
+    terrainDescHe: 'אתר בנייה עירוני עם מנופי פלדה, פיגומים, חביות דלק ושלטי אזהרה. מוקד ספאון מרכזי של תמנונים (Octopus) לקווסטים.',
+    mobsPresent: ['Octopus Lv.12', 'Blue Snail Lv.2', 'Stirges Lv.20'],
+    mobSpawnRate: 'צפיפות תמנונים גבוהה מאוד בקורות הפלדה התחתונות והאמצעיות',
+    snipingSpotHe: 'עמדת קורת פלדה עליונה לצד המנוף - צליפה בטוחה ללא מגע'
   }
 };
 
@@ -445,74 +480,140 @@ export function getRealMapData(locationName, town, monster) {
   const townStr = (town || monster?.town || '').toLowerCase();
   const mobStr = (monster?.name || '').toLowerCase();
 
-  // 1. Sand Rabbit / Outside North Entrance of Ariant
-  if (locStr.includes('north entrance') || locStr.includes('outside north') || locStr.includes('ariant') || mobStr.includes('sand rabbit') || townStr.includes('ariant')) {
+  // 1. Mano / Thicket Around the Beach
+  if (locStr.includes('thicket around the beach') || locStr.includes('thicket around beach') || locStr.includes('סבך סביב החוף') || mobStr.includes('mano') || locStr.includes('thicket around the beach iii')) {
+    return REAL_MAPS_REGISTRY.thicket_beach_3;
+  }
+
+  // 2. Octopus / Kerning Construction Site
+  if (locStr.includes('construction site') || locStr.includes('אתר הבנייה') || (mobStr.includes('octopus') && !locStr.includes('subway'))) {
+    return REAL_MAPS_REGISTRY.kerning_construction;
+  }
+
+  // 3. Sand Rabbit / Outside North Entrance of Ariant
+  if (locStr.includes('north entrance') || locStr.includes('outside north') || locStr.includes('ariant north') || mobStr.includes('sand rabbit')) {
     if (locStr.includes('sahel 2') || locStr.includes('sahel2')) {
       return REAL_MAPS_REGISTRY.sahel_2;
     }
     return REAL_MAPS_REGISTRY.ariant_north;
   }
 
-  // 2. Pig Beach
-  if (locStr.includes('pig beach') || locStr.includes('חוף החזירים') || mobStr.includes('ribbon pig') || mobStr.includes('pig')) {
+  // 4. Pig Beach
+  if (locStr.includes('pig beach') || locStr.includes('חוף החזירים') || mobStr.includes('ribbon pig') || (mobStr === 'pig' && locStr.includes('pig'))) {
     return REAL_MAPS_REGISTRY.pig_beach;
   }
 
-  // 3. Three-Way Road-Split
+  // 5. Three-Way Road-Split
   if (locStr.includes('3-way') || locStr.includes('three-way') || locStr.includes('צומת 3')) {
     return REAL_MAPS_REGISTRY.threeway_split;
   }
 
-  // 4. Blue Mushroom
+  // 6. Blue Mushroom
   if (locStr.includes('blue mushroom') || mobStr.includes('blue mushroom')) {
     return REAL_MAPS_REGISTRY.blue_mushroom;
   }
 
-  // 5. Land of Wild Boar
+  // 7. Land of Wild Boar
   if (locStr.includes('wild boar') || mobStr.includes('wild boar') || mobStr.includes('fire boar')) {
     return REAL_MAPS_REGISTRY.wild_boar;
   }
 
-  // 6. Mushmom
+  // 8. Mushmom
   if (locStr.includes('mushmom') || mobStr.includes('mushmom') || locStr.includes('someone else')) {
     return REAL_MAPS_REGISTRY.mushmom;
   }
 
-  // 7. Ant Tunnel Park / Zombie Mushroom
+  // 9. Ant Tunnel Park / Zombie Mushroom
   if (locStr.includes('ant tunnel park') || mobStr.includes('zombie mushroom')) {
     return REAL_MAPS_REGISTRY.ant_tunnel_park;
   }
 
-  // 8. Sahel 2
+  // 10. Sahel 2
   if (locStr.includes('sahel') || mobStr.includes('scorpion') || mobStr.includes('sand mole')) {
     return REAL_MAPS_REGISTRY.sahel_2;
   }
 
-  // 9. Drake / Cold Cradle
-  if (locStr.includes('cradle') || locStr.includes('drake') || mobStr.includes('drake')) {
+  // 11. Drake / Cold Cradle
+  if (locStr.includes('cradle') || locStr.includes('cold cradle') || (mobStr.includes('drake') && locStr.includes('cradle'))) {
     return REAL_MAPS_REGISTRY.cold_cradle;
   }
 
-  // 10. Henesys Hunting Ground (HHG1)
+  // 12. Henesys Hunting Ground (HHG1)
   if (locStr.includes('hhg1') || locStr.includes('hunting ground i')) {
     return REAL_MAPS_REGISTRY.hhg1;
   }
 
-  // 11. Tree Dungeon (Ellinia)
+  // 13. Tree Dungeon (Ellinia)
   if (locStr.includes('tree dungeon') || locStr.includes('tree that grew') || locStr.includes('גזע העץ')) {
     return REAL_MAPS_REGISTRY.tree_dungeon;
   }
 
-  // Fallback: build a dynamic authentic data object with maplestory.io URLs
+  // 14. Comprehensive Lookup from all 358 verified GMS v62/v83 maps!
+  const lookedUp = lookupMapByLocation(locationName, town);
+  if (lookedUp) {
+    const isUnderground = lookedUp.streetName.toLowerCase().includes('dungeon') || lookedUp.streetName.toLowerCase().includes('subway') || lookedUp.streetName.toLowerCase().includes('cave');
+    const isDesert = lookedUp.streetName.toLowerCase().includes('sand') || lookedUp.streetName.toLowerCase().includes('desert') || townStr.includes('ariant');
+    const isSnow = lookedUp.streetName.toLowerCase().includes('el nath') || lookedUp.streetName.toLowerCase().includes('snow') || lookedUp.streetName.toLowerCase().includes('cold') || townStr.includes('el nath');
+    const isLudi = lookedUp.streetName.toLowerCase().includes('ludibrium') || townStr.includes('ludibrium');
+    const isCloud = lookedUp.streetName.toLowerCase().includes('orbis') || townStr.includes('orbis');
+    const isSea = lookedUp.streetName.toLowerCase().includes('aqua') || townStr.includes('aqua');
+
+    const theme = isDesert ? 'desert' : (isSnow ? 'snow' : (isUnderground ? 'cave' : (isLudi ? 'toy' : (isCloud ? 'cloud' : (isSea ? 'aqua' : 'grass')))));
+
+    return {
+      mapId: lookedUp.mapId,
+      nameHe: locationName,
+      nameEn: lookedUp.nameEn || locationName,
+      streetName: lookedUp.streetName || town || 'Victoria Island',
+      town: town || 'Victoria Island',
+      townHe: town || 'ויקטוריה איילנד',
+      minimapUrl: lookedUp.minimapUrl,
+      renderUrl: lookedUp.renderUrl,
+      bgTheme: theme,
+      terrainDescHe: `מפת ציד אותנטית מעולם המשחק הקלאסי (${lookedUp.streetName}: ${lookedUp.nameEn}). ספאון מדויק ותוואי פלטפורמות מקורי.`,
+      mobsPresent: monster ? [`${monster.name} Lv.${monster.level}`] : [],
+      snipingSpotHe: 'עמדת יתרון גובה על ענף או מדרגת סלע לזריקת שוריקנים בטוחה מעל ראשי המפלצות.'
+    };
+  }
+
+  // Authentic Town Fallback: Map to the monster's actual Town ID (never default to Henesys for other towns)
+  const townMapIds = {
+    'lith harbor': 104000000,
+    'henesys': 100000000,
+    'ellinia': 101000000,
+    'perion': 102000000,
+    'kerning': 103000000,
+    'sleepywood': 105040300,
+    'florina': 110000000,
+    'orbis': 200000000,
+    'el nath': 211000000,
+    'ludibrium': 220000000,
+    'aqua': 230000000,
+    'leafre': 240000000,
+    'mu lung': 250000000,
+    'herb town': 251000000,
+    'ariant': 260000000,
+    'magatia': 261000000,
+    'amherst': 10000
+  };
+
+  let resolvedTownId = 100000000;
+  for (const [tKey, tId] of Object.entries(townMapIds)) {
+    if (townStr.includes(tKey)) {
+      resolvedTownId = tId;
+      break;
+    }
+  }
+
   return {
-    mapId: 100000000,
+    mapId: resolvedTownId,
     nameHe: locationName || `${town || 'Victoria Island'} Hunting Grounds`,
     nameEn: locationName || `${town || 'Victoria Island'} Hunting Grounds`,
     streetName: town || 'Victoria Island',
     town: town || 'Victoria Island',
     townHe: town || 'ויקטוריה איילנד',
-    minimapUrl: `https://maplestory.io/api/gms/83/map/100000000/minimap`,
-    renderUrl: `https://maplestory.io/api/gms/83/map/100000000/render`,
+    minimapUrl: `https://maplestory.io/api/gms/62/map/${resolvedTownId}/minimap`,
+    renderUrl: `https://maplestory.io/api/gms/62/map/${resolvedTownId}/render`,
     bgTheme: 'grass',
     terrainDescHe: 'שדה אימונים אותנטי מעולם מייפל סטורי הקלאסי.',
     mobsPresent: monster ? [`${monster.name} Lv.${monster.level}`] : [],

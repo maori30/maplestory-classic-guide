@@ -19,8 +19,13 @@ export const CLASSES_DATA = {
     name: 'Assassin',
     nameHe: 'מתנקש (Assassin / Hermit)',
     tagline: 'מלך הנזק ליחיד ממרחק • כוכבי זריקה ומהירות שיא',
+    taglineEn: 'Apex Single-Target Ranged Burst • Throwing Stars & Top-Tier Mobility',
     icon: '🗡️',
     themeColor: 'purple',
+    townEn: 'Kerning City',
+    job1NameEn: 'Rogue',
+    job2NameEn: 'Assassin',
+    instructor1En: 'Dark Lord (Thieves Hideout in Kerning)',
     town: 'Kerning City (קרנינג סיטי)',
     job1Name: 'Rogue (רוג)',
     job2Name: 'Assassin (מתנקש)',
@@ -34,13 +39,15 @@ export const CLASSES_DATA = {
         id: 'dexless', 
         name: 'Dexless LUK', 
         nameHe: '✨ בניית Dexless (25 DEX בסיסי, הכל ל-LUK)', 
-        desc: 'השקעה טהורה ב-LUK לנזק מרבי. בהשקה מסתמכים על Meba משודרגת במגילות (Faster 3) וציוד מוסיף DEX (כובע במבוק, חלוק רחצה).' 
+        desc: 'השקעה טהורה ב-LUK לנזק מרבי. בהשקה מסתמכים על Meba משודרגת במגילות (Faster 3) וציוד מוסיף DEX (כובע במבוק, חלוק רחצה).', 
+        descEn: 'Pure LUK allocation for maximum burst damage. Optimized for launch meta with scrolled Mebas (Faster 3 speed) and DEX gear (Bamboo Hat, Bathrobe).' 
       },
       { 
         id: 'regular', 
-        name: 'Regular LUK', 
+        name: 'Standard LUK', 
         nameHe: '⚖️ בנייה רגילה (DEX = רמה × 2)', 
-        desc: 'בנייה מאוזנת המאפשרת לבישת כל כפפות הגנב (Slain, Igrit, Scarab) והשריונות הקלאסיים של כל רמה ללא צורך במגילות יקרות.' 
+        desc: 'בנייה מאוזנת המאפשרת לבישת כל כפפות הגנב (Slain, Igrit, Scarab) והשריונות הקלאסיים של כל רמה ללא צורך במגילות יקרות.', 
+        descEn: 'Standard build keeping DEX equal to 2x Level to equip all claws (Slain, Igrit, Scarab) and thief armors naturally without costly scrolling.' 
       }
     ],
     statFormula: (lvl, build) => {
@@ -49,9 +56,10 @@ export const CLASSES_DATA = {
       const totalAp = (lvl - 1) * 5;
       const luk = 4 + totalAp - (baseDex - 25);
       return {
-        primary: { name: 'LUK', val: luk, note: 'מגדיל ישירות את נזק הכוכבים (Lucky Seven)' },
-        secondary: { name: 'DEX', val: baseDex, note: isDexless ? 'נשאר על 25 בסיסי לצמיתות (דקסלס)' : 'דרישת ציוד נשקים (רמה × 2)' },
-        rule: isDexless ? 'שים 5 נקודות AP ב-LUK בכל רמה!' : 'שים 2 נקודות ב-DEX ו-3 ב-LUK בכל עליית רמה.'
+        primary: { name: 'LUK', val: luk, note: 'מגדיל ישירות את נזק הכוכבים (Lucky Seven)', noteEn: 'Directly scales throwing star and skill damage (Lucky Seven)' },
+        secondary: { name: 'DEX', val: baseDex, note: isDexless ? 'נשאר על 25 בסיסי לצמיתות (דקסלס)' : 'דרישת ציוד נשקים (רמה × 2)', noteEn: isDexless ? 'Permanently kept at base 25 (Dexless)' : 'Claw equipment requirement (Level × 2)' },
+        rule: isDexless ? 'שים 5 נקודות AP ב-LUK בכל רמה!' : 'שים 2 נקודות ב-DEX ו-3 ב-LUK בכל עליית רמה.',
+        ruleEn: isDexless ? 'Put all 5 AP into LUK every level-up!' : 'Add 2 AP into DEX and 3 AP into LUK every level-up.'
       };
     },
     skills1: [
@@ -69,10 +77,10 @@ export const CLASSES_DATA = {
       { id: 'drain', name: 'Drain', nameHe: 'שאיבת חיים', max: 30, icon: '🩸', optimal: 30, desc: 'תוקף אויב ומשחזר HP לפי 50% מהנזק שגרמת. חוסך שיקויים אדיר!' }
     ],
     huntingSpots: [
-      { range: '10-20', name: 'Henesys Hunting Ground I (HHG1)', why: 'פלטפורמות עץ מוגבהות לזריקת Lucky Seven ממרחק בטוח על סליימים ופטריות.' },
-      { range: '21-30', name: 'Kerning City PQ (KPQ)', why: 'אסאסין הוא מחסל הבוס (King Slime) הטוב במשחק בזכות נזק Lucky Seven ממוקסם!' },
-      { range: '31-50', name: 'Ludibrium PQ (LPQ) & Lost Time 1', why: 'LPQ לרמות 35-51, ו-Platoon Chronos בלודיבריום שמפיל Gloves for ATT 60%.' },
-      { range: '51-70', name: 'Forest of Evil Energy (Zombie Lupins) & Drakes', why: 'חרישת EXP מהירה עם Haste פעיל, וציד דרקונים במערות סליפיווד.' }
+      { range: '10-20', name: 'Henesys Hunting Ground I (HHG1)', why: 'פלטפורמות עץ מוגבהות לזריקת Lucky Seven ממרחק בטוח על סליימים ופטריות.', nameEn: 'Henesys Hunting Ground I (HHG1)', whyEn: 'Elevated wooden platforms to safely snipe Slimes and Mushrooms with Lucky Seven from maximum range.' },
+      { range: '21-30', name: 'Kerning City PQ (KPQ)', why: 'אסאסין הוא מחסל הבוס (King Slime) הטוב במשחק בזכות נזק Lucky Seven ממוקסם!', nameEn: 'Kerning City PQ (KPQ)', whyEn: 'Prime King Slime boss melter with maxed Lucky Seven single-target burst!' },
+      { range: '31-50', name: 'Ludibrium PQ (LPQ) & Lost Time 1', why: 'LPQ לרמות 35-51, ו-Platoon Chronos בלודיבריום שמפיל Gloves for ATT 60%.', nameEn: 'Ludibrium PQ (LPQ) & Lost Time 1', whyEn: 'Fast LPQ exp from Lv 35-51, plus Platoon Chronos hunting for 60% Gloves for ATT scrolls.' },
+      { range: '51-70', name: 'Forest of Evil Energy (Zombie Lupins) & Drakes', why: 'חרישת EXP מהירה עם Haste פעיל, וציד דרקונים במערות סליפיווד.', nameEn: 'Forest of Evil Energy & Drakes', whyEn: 'Rapid EXP grinding with Haste active on Zombie Lupins, and Drake hunting in Sleepywood caves.' }
     ],
     gearProgression: [
       { level: 10, name: 'Garnier', att: '10-14 ATT', speed: 'Fast', where: 'חנות נשקים בקרנינג סיטי (דרישה: 25 DEX)' },
@@ -95,8 +103,13 @@ export const CLASSES_DATA = {
     name: 'Bandit',
     nameHe: 'בנדיט (Bandit / Chief Bandit)',
     tagline: 'לוחם סכינים קטלני בקרב מגע • 6 מכות סכין Savage Blow!',
+    taglineEn: 'Deadly Close-Quarters Dagger Specialist • 6-Hit Savage Blow Combos',
     icon: '🔪',
     themeColor: 'purple',
+    townEn: 'Kerning City',
+    job1NameEn: 'Rogue',
+    job2NameEn: 'Bandit',
+    instructor1En: 'Dark Lord (Thieves Hideout in Kerning)',
     town: 'Kerning City (קרנינג סיטי)',
     job1Name: 'Rogue (רוג)',
     job2Name: 'Bandit (בנדיט)',
@@ -110,13 +123,15 @@ export const CLASSES_DATA = {
         id: 'dexless', 
         name: 'Dexless Bandit', 
         nameHe: '✨ בניית Dexless (25 DEX בסיסי)', 
-        desc: 'נזק פראי בשימוש בפגיונות עם דרישת DEX אפסית (Wooden Sword משודרג) וציוד מוסיף DEX.' 
+        desc: 'נזק פראי בשימוש בפגיונות עם דרישת DEX אפסית (Wooden Sword משודרג) וציוד מוסיף DEX.', 
+        descEn: 'Unleashes fierce burst damage using zero-DEX requirement daggers (scrolled Wooden Sword) and DEX-boosting gear.' 
       },
       { 
         id: 'regular', 
-        name: 'Regular Dagger', 
+        name: 'Standard Dagger', 
         nameHe: '⚖️ בנדיט רגיל (DEX לפי דרישת הפגיון)', 
-        desc: 'הבילד המומלץ והיציב ביותר בהשקה! מאפשר לבישת כל מגוון הפגיונות (Stiletto, Bazlud, Sai) והמגנים הקלאסיים.' 
+        desc: 'הבילד המומלץ והיציב ביותר בהשקה! מאפשר לבישת כל מגוון הפגיונות (Stiletto, Bazlud, Sai) והמגנים הקלאסיים.', 
+        descEn: 'The recommended launch progression, allocating DEX to match dagger requirements (Stiletto, Bazlud, Sai) and equip classic thief shields.' 
       }
     ],
     statFormula: (lvl, build) => {
@@ -125,9 +140,10 @@ export const CLASSES_DATA = {
       const totalAp = (lvl - 1) * 5;
       const luk = 4 + totalAp - (baseDex - 25);
       return {
-        primary: { name: 'LUK', val: luk, note: 'מעלה ישירות את נזק ה-Savage Blow' },
-        secondary: { name: 'DEX', val: baseDex, note: isDexless ? '25 בסיסי לצמיתות' : 'דרישת פגיונות ומגנים (רמה × 2)' },
-        rule: isDexless ? 'השקע 5 נקודות AP ב-LUK בכל רמה!' : 'השקע ב-DEX לפי דרישת הפגיון הבא, ושאר הנקודות ב-LUK.'
+        primary: { name: 'LUK', val: luk, note: 'מעלה ישירות את נזק ה-Savage Blow', noteEn: 'Directly increases Savage Blow attack damage' },
+        secondary: { name: 'DEX', val: baseDex, note: isDexless ? '25 בסיסי לצמיתות' : 'דרישת פגיונות ומגנים (רמה × 2)', noteEn: isDexless ? 'Permanently kept at base 25 (Dexless)' : 'Dagger and shield requirement (Level × 2)' },
+        rule: isDexless ? 'השקע 5 נקודות AP ב-LUK בכל רמה!' : 'השקע ב-DEX לפי דרישת הפגיון הבא, ושאר הנקודות ב-LUK.',
+        ruleEn: isDexless ? 'Put all 5 AP into LUK every level-up!' : 'Allocate DEX to meet next dagger requirement, all remaining AP into LUK.'
       };
     },
     skills1: [
@@ -144,10 +160,10 @@ export const CLASSES_DATA = {
       { id: 'steal', name: 'Steal', nameHe: 'גניבה', max: 30, icon: '💰', optimal: 30, desc: 'מתקפה מהירה הגונבת חפצים ושיקויים ישירות מכיסי המפלצת.' }
     ],
     huntingSpots: [
-      { range: '10-20', name: 'The Tree That Grew (עץ הסליימים באליניה)', why: 'מדרגות צפופות שבהן Double Stab מחסל סליימים ופטריות במכה כפולה.' },
-      { range: '21-30', name: 'Kerning City PQ & Land of Wild Boar', why: 'שימוש ב-Double Stab ממוקסם ו-Dark Sight לתנועה חופשית בין עטלפים.' },
-      { range: '31-50', name: 'Land of Wild Boar II (חזירי אש) & LPQ', why: 'ברגע ש-Savage Blow מגיע ל-30, 6 מכות מחסלות חזירים במכה אחת!' },
-      { range: '51-70', name: 'Wraiths (הרכבת התחתית בקרנינג) & Straw Target Dummies', why: 'נזק מהיר להפליא בקרב צמוד, שימוש מתמיד ב-Haste ו-Booster.' }
+      { range: '10-20', name: 'The Tree That Grew (עץ הסליימים באליניה)', why: 'מדרגות צפופות שבהן Double Stab מחסל סליימים ופטריות במכה כפולה.', nameEn: 'The Tree That Grew (Ellinia Slime Tree)', whyEn: 'Tight wooden platforms where Double Stab two-shots Slimes and Mushrooms efficiently.' },
+      { range: '21-30', name: 'Kerning City PQ & Land of Wild Boar', why: 'שימוש ב-Double Stab ממוקסם ו-Dark Sight לתנועה חופשית בין עטלפים.', nameEn: 'Kerning City PQ & Land of Wild Boar', whyEn: 'Maxed Double Stab combined with Dark Sight to slip past bats and aggressive spawns.' },
+      { range: '31-50', name: 'Land of Wild Boar II (חזירי אש) & LPQ', why: 'ברגע ש-Savage Blow מגיע ל-30, 6 מכות מחסלות חזירים במכה אחת!', nameEn: 'Land of Wild Boar II (Fire Boars) & LPQ', whyEn: 'Once Savage Blow reaches Lv 30, the 6-hit barrage demolishes Boars in a single execution!' },
+      { range: '51-70', name: 'Wraiths (הרכבת התחתית בקרנינג) & Straw Target Dummies', why: 'נזק מהיר להפליא בקרב צמוד, שימוש מתמיד ב-Haste ו-Booster.', nameEn: 'Kerning Subway (Wraiths) & Straw Dummies', whyEn: 'Insanely fast close-quarters DPS with Haste and Dagger Booster permanently active.' }
     ],
     gearProgression: [
       { level: 10, name: 'Fruit Knife / Razor', att: '15-18 ATT', speed: 'Fast', where: 'חנות נשקים בקרנינג סיטי (דרישה: 20 DEX)' },
@@ -169,8 +185,13 @@ export const CLASSES_DATA = {
     name: 'Cleric',
     nameHe: 'קוסם קודש (Cleric / Priest)',
     tagline: 'מלך האימונים נגד אל-מתים • ריפוי פארטי Heal וחסכון אפס שיקויים!',
+    taglineEn: 'Master of Undead Hunting • Party-Wide Healing & Zero Potion Cost',
     icon: '✨',
     themeColor: 'blue',
+    townEn: 'Ellinia',
+    job1NameEn: 'Magician',
+    job2NameEn: 'Cleric',
+    instructor1En: 'Grendel the Really Old (Ellinia Magic Tree)',
     town: 'Ellinia (אליניה)',
     job1Name: 'Magician (קוסם)',
     job2Name: 'Cleric (קודש)',
@@ -184,24 +205,27 @@ export const CLASSES_DATA = {
         id: 'lukless', 
         name: 'Lukless Mage', 
         nameHe: '✨ בניית Lukless (4 LUK בסיסי, הכל ל-INT)', 
-        desc: 'נזק קסם מקסימלי וכמות MP אדירה! בהשקה משתמשים ב-Wooden Wand רמה 8 משודרג היטב במגילות M.ATT.' 
+        desc: 'נזק קסם מקסימלי וכמות MP אדירה! בהשקה משתמשים ב-Wooden Wand רמה 8 משודרג היטב במגילות M.ATT.', 
+        descEn: 'Maximum Magic Attack and an enormous MP pool! Pairs at launch with a scrolled Lv 8 Wooden Wand to excel in heal bombing.' 
       },
       { 
         id: 'regular', 
-        name: 'Regular LUK', 
+        name: 'Standard Mage', 
         nameHe: '⚖️ קוסם רגיל (LUK = רמה + 3)', 
-        desc: 'בנייה מאוזנת המאפשרת לבישת כל גלימות הקוסמים והמטות הקלאסיים (Wizard Wand, Cromi, Evil Wings) ללא מגילות יקרות.' 
+        desc: 'בנייה מאוזנת המאפשרת לבישת כל גלימות הקוסמים והמטות הקלאסיים (Wizard Wand, Cromi, Evil Wings) ללא מגילות יקרות.', 
+        descEn: 'Standard progression keeping LUK at Level + 3 to equip classic wands, staves (Wizard Wand, Cromi, Evil Wings), and robes without expensive scrolls.' 
       }
     ],
     statFormula: (lvl, build) => {
-      const isLukless = build === 'lukless';
+      const isLukless = build === 'lukless' || build === 'dexless' || build === 'pure';
       const baseLuk = isLukless ? 4 : Math.min(100, lvl + 3);
       const totalAp = (lvl - 1) * 5;
       const int = 4 + totalAp - (baseLuk - 4);
       return {
-        primary: { name: 'INT', val: int, note: 'מעלה ישירות נזק קסם (Magic ATT) וכמות MP מקסימלית' },
-        secondary: { name: 'LUK', val: baseLuk, note: isLukless ? '4 בסיסי לצמיתות (לוקלס)' : 'דרישת מטות קסם (רמה + 3)' },
-        rule: isLukless ? 'השקע 5 נקודות AP ב-INT בכל רמה ולעולם אל תיגע ב-LUK!' : 'השקע נקודה אחת ב-LUK ו-4 נקודות ב-INT בכל עליית רמה.'
+        primary: { name: 'INT', val: int, note: 'מעלה ישירות נזק קסם (Magic ATT) וכמות MP מקסימלית', noteEn: 'Directly boosts Magic Attack and maximum MP pool' },
+        secondary: { name: 'LUK', val: baseLuk, note: isLukless ? '4 בסיסי לצמיתות (לוקלס)' : 'דרישת מטות קסם (רמה + 3)', noteEn: isLukless ? 'Permanently kept at base 4 (Lukless)' : 'Wand & Staff requirement (Level + 3)' },
+        rule: isLukless ? 'השקע 5 נקודות AP ב-INT בכל רמה ולעולם אל תיגע ב-LUK!' : 'השקע נקודה אחת ב-LUK ו-4 נקודות ב-INT בכל עליית רמה.',
+        ruleEn: isLukless ? 'Put all 5 AP into INT every level-up and never touch LUK!' : 'Add 1 AP into LUK and 4 AP into INT every level-up.'
       };
     },
     skills1: [
@@ -219,10 +243,10 @@ export const CLASSES_DATA = {
       { id: 'holyArrow', name: 'Holy Arrow', nameHe: 'חץ קדוש', max: 30, icon: '🏹', optimal: 11, desc: 'יורה חץ של אור קדוש על מטרת אויב בודדת.' }
     ],
     huntingSpots: [
-      { range: '10-20', name: 'Tree That Grew I & Henesys Hunting Ground', why: 'שימוש ב-Magic Claw לחיסול סליימים ופטריות במכה כפולה.' },
-      { range: '21-30', name: 'Kerning City PQ & Green / Horned Mushrooms', why: 'סיוע לפארטי עם Magic Guard ו-Magic Claw בעל נזק עקבי.' },
-      { range: '31-40', name: 'Jr. Wraiths (רכבת קרנינג) & Zombie Mushrooms', why: 'ברגע ש-Heal עולה, פשוט ספים Heal ברכבת וצפה ברוחות מתאדות וב-EXP טס!' },
-      { range: '41-70', name: 'Chronos (מגדל השעון לודיבריום) & Zombie Lupins', why: 'מפות אל-מתים טהורות! חרישת Heal רצופה ללא שימוש בשיקויים כלל.' }
+      { range: '10-20', name: 'Tree That Grew I & Henesys Hunting Ground', why: 'שימוש ב-Magic Claw לחיסול סליימים ופטריות במכה כפולה.', nameEn: 'The Tree That Grew I & HHG1', whyEn: 'Double-strike Magic Claw sniping Slimes and Mushrooms with ease.' },
+      { range: '21-30', name: 'Kerning City PQ & Green / Horned Mushrooms', why: 'סיוע לפארטי עם Magic Guard ו-Magic Claw בעל נזק עקבי.', nameEn: 'Kerning City PQ & Green / Horned Mushrooms', whyEn: 'Reliable Magic Claw damage and Magic Guard party survivability.' },
+      { range: '31-40', name: 'Jr. Wraiths (רכבת קרנינג) & Zombie Mushrooms', why: 'ברגע ש-Heal עולה, פשוט ספים Heal ברכבת וצפה ברוחות מתאדות וב-EXP טס!', nameEn: 'Kerning Subway (Jr. Wraiths) & Zombie Mushrooms', whyEn: 'Spam Heal continuously to vaporize hordes of Undead with zero mana costs!' },
+      { range: '41-70', name: 'Chronos (מגדל השעון לודיבריום) & Zombie Lupins', why: 'מפות אל-מתים טהורות! חרישת Heal רצופה ללא שימוש בשיקויים כלל.', nameEn: 'Chronos (Ludibrium Clocktower) & Zombie Lupins', whyEn: 'Pure Undead heaven! Non-stop Heal Bombing for phenomenal EXP without using a single potion.' }
     ],
     gearProgression: [
       { level: 8, name: 'Wooden Wand', att: '23 M.ATT', speed: 'Normal', where: 'חנות אליניה (נשק הבסיס האולטימטיבי לקוסמי Lukless בהשקה)' },
@@ -244,8 +268,13 @@ export const CLASSES_DATA = {
     name: 'Wizard (Ice/Lightning)',
     nameHe: 'קוסם קרח וברקים (I/L Wizard / Mage)',
     tagline: 'שליטה במרחב והקפאת מפלצות • מתקפת ברקים על כל המפה Thunderbolt!',
+    taglineEn: 'Unrivaled Crowd Control • Area-Wide Thunderbolts & Deep Freezes',
     icon: '⚡',
     themeColor: 'blue',
+    townEn: 'Ellinia',
+    job1NameEn: 'Magician',
+    job2NameEn: 'Wizard (I/L)',
+    instructor1En: 'Grendel the Really Old (Ellinia Magic Tree)',
     town: 'Ellinia (אליניה)',
     job1Name: 'Magician (קוסם)',
     job2Name: 'Wizard (I/L)',
@@ -259,24 +288,27 @@ export const CLASSES_DATA = {
         id: 'lukless', 
         name: 'Lukless I/L', 
         nameHe: '✨ קוסם Lukless (4 LUK בסיסי, הכל ל-INT)', 
-        desc: 'נזק ברקים וקרח מקסימלי עם שרביט Wooden Wand משודרג ללא דרישת LUK.' 
+        desc: 'נזק ברקים וקרח מקסימלי עם שרביט Wooden Wand משודרג ללא דרישת LUK.', 
+        descEn: 'Maximizes ice and lightning damage through pure INT, utilizing a scrolled Wooden Wand with zero LUK requirement.' 
       },
       { 
         id: 'regular', 
-        name: 'Regular I/L', 
+        name: 'Standard I/L', 
         nameHe: '⚖️ קוסם רגיל (LUK = רמה + 3)', 
-        desc: 'השקעה ב-LUK לפי דרישת מטות הקסם של כל רמה, מאפשרת לבישת כל גלימות הקוסמים.' 
+        desc: 'השקעה ב-LUK לפי דרישת מטות הקסם של כל רמה, מאפשרת לבישת כל גלימות הקוסמים.', 
+        descEn: 'Maintains LUK at Level + 3 to equip classic magician staves and robes, providing reliable defense and gear flexibility.' 
       }
     ],
     statFormula: (lvl, build) => {
-      const isLukless = build === 'lukless';
+      const isLukless = build === 'lukless' || build === 'dexless' || build === 'pure';
       const baseLuk = isLukless ? 4 : Math.min(100, lvl + 3);
       const totalAp = (lvl - 1) * 5;
       const int = 4 + totalAp - (baseLuk - 4);
       return {
-        primary: { name: 'INT', val: int, note: 'מגדיל את עוצמת מכות הקרח והברקים' },
-        secondary: { name: 'LUK', val: baseLuk, note: isLukless ? '4 בסיסי לצמיתות' : 'דרישת מטות קסם (רמה + 3)' },
-        rule: isLukless ? 'השקע 5 נקודות AP ב-INT בכל רמה!' : 'השקע 1 נקודה ב-LUK ו-4 ב-INT בכל עלייה.'
+        primary: { name: 'INT', val: int, note: 'מגדיל את עוצמת מכות הקרח והברקים', noteEn: 'Directly amplifies cold and lightning spell damage' },
+        secondary: { name: 'LUK', val: baseLuk, note: isLukless ? '4 בסיסי לצמיתות' : 'דרישת מטות קסם (רמה + 3)', noteEn: isLukless ? 'Permanently kept at base 4 (Lukless)' : 'Staff requirement (Level + 3)' },
+        rule: isLukless ? 'השקע 5 נקודות AP ב-INT בכל רמה!' : 'השקע 1 נקודה ב-LUK ו-4 ב-INT בכל עלייה.',
+        ruleEn: isLukless ? 'Put all 5 AP into INT every level-up!' : 'Add 1 AP into LUK and 4 AP into INT every level-up.'
       };
     },
     skills1: [
@@ -294,10 +326,10 @@ export const CLASSES_DATA = {
       { id: 'teleport', name: 'Teleport', nameHe: 'טלפורט', max: 20, icon: '🌌', optimal: 20, desc: 'שיגור מיידי במפה. חיוני לתנועה חלקה ומיקום נכון ל-Thunderbolt.' }
     ],
     huntingSpots: [
-      { range: '10-20', name: 'The Tree That Grew I (סליימים באליניה)', why: 'חיסול סליימים מהיר עם Magic Claw.' },
-      { range: '21-30', name: 'Kerning City PQ & Green Mushrooms', why: 'נזק יציב ומהיר בצוות.' },
-      { range: '31-40', name: 'Fire Boars (חזירי אש בפריון)', why: 'חזירי אש חלשים פי 2 לקסם קרח! Cold Beam מקפיא ומחסל אותם במכה אחת.' },
-      { range: '41-70', name: 'Red Drakes (דרקונים אדומים) & Toy Factory Ludi', why: 'חולשת אש מוחלטת ל-Cold Beam, וספאם Thunderbolt במפעל הצעצועים.' }
+      { range: '10-20', name: 'The Tree That Grew I (סליימים באליניה)', why: 'חיסול סליימים מהיר עם Magic Claw.', nameEn: 'The Tree That Grew I (Ellinia Slimes)', whyEn: 'Rapidly wipe Slime tiers with targeted Magic Claw hits.' },
+      { range: '21-30', name: 'Kerning City PQ & Green Mushrooms', why: 'נזק יציב ומהיר בצוות.', nameEn: 'Kerning City PQ & Green Mushrooms', whyEn: 'Consistent ranged magical burst for quick party clears.' },
+      { range: '31-40', name: 'Fire Boars (חזירי אש בפריון)', why: 'חזירי אש חלשים פי 2 לקסם קרח! Cold Beam מקפיא ומחסל אותם במכה אחת.', nameEn: 'Fire Boars (Perion Burnt Land)', whyEn: 'Fire Boars are 200% weak to Ice! Cold Beam freezes and one-shots them instantly.' },
+      { range: '41-70', name: 'Red Drakes (דרקונים אדומים) & Toy Factory Ludi', why: 'חולשת אש מוחלטת ל-Cold Beam, וספאם Thunderbolt במפעל הצעצועים.', nameEn: 'Red Drakes & Ludibrium Toy Factory', whyEn: 'Absolute Fire-weakness abuse with Cold Beam, plus Thunderbolt mob spam in Toy Factory.' }
     ],
     gearProgression: [
       { level: 8, name: 'Wooden Wand', att: '23 M.ATT', speed: 'Normal', where: 'חנות נשקים באליניה' },
@@ -317,8 +349,13 @@ export const CLASSES_DATA = {
     name: 'Fighter',
     nameHe: 'לוחם חרב וגרזן (Fighter / Crusader)',
     tagline: 'שליט הקרב בחרב ובגרזן • באף זעם Rage של +12 התקפה לכל הפארטי!',
+    taglineEn: 'Fierce Frontline Bruiser • Party-Wide +12 Weapon Attack Rage Buff',
     icon: '⚔️',
     themeColor: 'red',
+    townEn: 'Perion',
+    job1NameEn: 'Swordsman',
+    job2NameEn: 'Fighter',
+    instructor1En: 'Dances with Balrog (Perion Sanctuary)',
     town: 'Perion (פריון)',
     job1Name: 'Swordsman (לוחם)',
     job2Name: 'Fighter (פייטר)',
@@ -332,13 +369,15 @@ export const CLASSES_DATA = {
         id: 'dexless', 
         name: 'Dexless Warrior', 
         nameHe: '✨ לוחם Dexless (4 DEX בסיסי, הכל ל-STR)', 
-        desc: 'נזק מפלצתי! מחייב שימוש בציוד שמוסיף Accuracy (דיוק) ושיקויי דיוק כדי לא לפספס מפלצות.' 
+        desc: 'נזק מפלצתי! מחייב שימוש בציוד שמוסיף Accuracy (דיוק) ושיקויי דיוק כדי לא לפספס מפלצות.', 
+        descEn: 'Colossal physical attack power! Requires Accuracy gear (DEX bathrobes, scrolled Work Gloves) and Sniper Potions to eliminate miss rate.' 
       },
       { 
         id: 'regular', 
-        name: 'Regular STR', 
+        name: 'Standard Warrior', 
         nameHe: '⚖️ לוחם מאוזן (DEX = רמה × 1.2)', 
-        desc: 'מעניק דיוק טבעי לפגיעה בכל מפלצת ובכל בוס, ומאפשר לבישת כל שריונות הלוחמים הקלאסיים.' 
+        desc: 'מעניק דיוק טבעי לפגיעה בכל מפלצת ובכל בוס, ומאפשר לבישת כל שריונות הלוחמים הקלאסיים.', 
+        descEn: 'Maintains DEX at roughly 1.2x Level to hit all high-level monsters and bosses while equipping full warrior armor sets.' 
       }
     ],
     statFormula: (lvl, build) => {
@@ -347,9 +386,10 @@ export const CLASSES_DATA = {
       const totalAp = (lvl - 1) * 5;
       const str = 4 + totalAp - (baseDex - 4);
       return {
-        primary: { name: 'STR', val: str, note: 'מגדיל ישירות את כוח ההתקפה הפיזי ומד החיים' },
-        secondary: { name: 'DEX', val: baseDex, note: isDexless ? '4 בסיסי (מסתמך על ציוד דיוק)' : 'מעניק Accuracy לפגיעה במפלצות' },
-        rule: isDexless ? 'שים 5 נקודות ב-STR בכל רמה והשתמש בשיקויי Sniper Potion לדיוק!' : 'שים 1-2 נקודות ב-DEX וכל השאר ב-STR.'
+        primary: { name: 'STR', val: str, note: 'מגדיל ישירות את כוח ההתקפה הפיזי ומד החיים', noteEn: 'Directly boosts physical weapon damage and maximum HP' },
+        secondary: { name: 'DEX', val: baseDex, note: isDexless ? '4 בסיסי (מסתמך על ציוד דיוק)' : 'מעניק Accuracy לפגיעה במפלצות', noteEn: isDexless ? 'Base 4 (relies on Accuracy gear & potions)' : 'Provides essential Accuracy to reliably hit mobs' },
+        rule: isDexless ? 'שים 5 נקודות ב-STR בכל רמה והשתמש בשיקויי Sniper Potion לדיוק!' : 'שים 1-2 נקודות ב-DEX וכל השאר ב-STR.',
+        ruleEn: isDexless ? 'Put all 5 AP into STR every level-up and use Sniper Potions for Accuracy!' : 'Add 1-2 AP into DEX and all remaining AP into STR.'
       };
     },
     skills1: [
@@ -367,10 +407,10 @@ export const CLASSES_DATA = {
       { id: 'finalAttack', name: 'Final Attack: Sword', nameHe: 'התקפה מסיימת', max: 30, icon: '⚔️', optimal: 30, desc: 'עודכן ב-MSCW v1.0.0: משך הזמן הוארך ל-60 שניות! מנחית מכה נוספת קטלנית מיד לאחר Power Strike או Slash Blast.' }
     ],
     huntingSpots: [
-      { range: '10-20', name: 'Henesys Hunting Ground I & Tree That Grew', why: 'סלאש בלאסט מחסל גושי סליימים ופטריות בבת אחת.' },
-      { range: '21-30', name: 'Land of Wild Boar (חזירי בר בפריון)', why: 'המגרש הביתי של הלוחם! איסוף עשרות חזירים ומחיצתם עם Slash Blast.' },
-      { range: '31-50', name: 'Land of Wild Boar II (חזירי אש) & LPQ', why: 'Slash Blast ו-Power Strike ממוקסמים עם באף Rage פעיל.' },
-      { range: '51-70', name: 'Straw Target Dummies (מו לונג) & Drakes', why: 'צפיפות מפלצות מושלמת לחרישת מכות שטח.' }
+      { range: '10-20', name: 'Henesys Hunting Ground I & Tree That Grew', why: 'סלאש בלאסט מחסל גושי סליימים ופטריות בבת אחת.', nameEn: 'Henesys Hunting Ground I & Slime Tree', whyEn: 'Slash Blast slices through clusters of Slimes and Mushrooms in one swing.' },
+      { range: '21-30', name: 'Land of Wild Boar (חזירי בר בפריון)', why: 'המגרש הביתי של הלוחם! איסוף עשרות חזירים ומחיצתם עם Slash Blast.', nameEn: 'Land of Wild Boar (Perion)', whyEn: 'The iconic Swordsman stomping ground: gather dozens of Boars and cleave with Slash Blast.' },
+      { range: '31-50', name: 'Land of Wild Boar II (חזירי אש) & LPQ', why: 'Slash Blast ו-Power Strike ממוקסמים עם באף Rage פעיל.', nameEn: 'Land of Wild Boar II (Fire Boars) & LPQ', whyEn: 'Maxed Slash Blast and Power Strike fueled by the attack boost from Rage.' },
+      { range: '51-70', name: 'Straw Target Dummies (מו לונג) & Drakes', why: 'צפיפות מפלצות מושלמת לחרישת מכות שטח.', nameEn: 'Straw Target Dummies (Mu Lung) & Drakes', whyEn: 'Flawless mob density for multi-target cleave rotations.' }
     ],
     gearProgression: [
       { level: 10, name: 'Sword / Wooden Club', att: '25-30 ATT', speed: 'Normal', where: 'חנות כלי נשק בפריון' },
@@ -392,8 +432,13 @@ export const CLASSES_DATA = {
     name: 'Spearman',
     nameHe: 'נושא רומח (Spearman / Dragon Knight)',
     tagline: 'טווח תקיפה עצום ברומח • באף החיים האגדי Hyper Body של +60% HP/MP!',
+    taglineEn: 'Devastating Melee Reach • Iconic Hyper Body +60% Max HP/MP Buff',
     icon: '🔱',
     themeColor: 'red',
+    townEn: 'Perion',
+    job1NameEn: 'Swordsman',
+    job2NameEn: 'Spearman',
+    instructor1En: 'Dances with Balrog (Perion Sanctuary)',
     town: 'Perion (פריון)',
     job1Name: 'Swordsman (לוחם)',
     job2Name: 'Spearman (ספירמן)',
@@ -407,13 +452,15 @@ export const CLASSES_DATA = {
         id: 'dexless', 
         name: 'Dexless Spearman', 
         nameHe: '✨ ספירמן Dexless (4 DEX בסיסי)', 
-        desc: 'נזק דקירה מפלצתי בשימוש בציוד דיוק ושיקויי דיוק.' 
+        desc: 'נזק דקירה מפלצתי בשימוש בציוד דיוק ושיקויי דיוק.', 
+        descEn: 'Devastating thrust damage by keeping DEX at base 4 and pumping pure STR, supported by Accuracy gear and potions.' 
       },
       { 
         id: 'regular', 
-        name: 'Regular Spearman', 
+        name: 'Standard Spearman', 
         nameHe: '⚖️ ספירמן מאוזן (DEX לפי דרישת הרומח)', 
-        desc: 'הבילד המאוזן המאפשר שימוש בכל הרמחים והמוטות הקלאסיים.' 
+        desc: 'הבילד המאוזן המאפשר שימוש בכל הרמחים והמוטות הקלאסיים.', 
+        descEn: 'Balanced progression allocating DEX to meet spear and polearm equip requirements for consistent hit rate and comfortable leveling.' 
       }
     ],
     statFormula: (lvl, build) => {
@@ -422,9 +469,10 @@ export const CLASSES_DATA = {
       const totalAp = (lvl - 1) * 5;
       const str = 4 + totalAp - (baseDex - 4);
       return {
-        primary: { name: 'STR', val: str, note: 'מגדיל את נזק הדקירה וההנפה של הרומח' },
-        secondary: { name: 'DEX', val: baseDex, note: 'מעניק דיוק הכרחי לפגיעה' },
-        rule: isDexless ? '5 נקודות ב-STR בכל רמה!' : 'השקע ב-DEX לפי דרישת הנשק והשאר ב-STR.'
+        primary: { name: 'STR', val: str, note: 'מגדיל את נזק הדקירה וההנפה של הרומח', noteEn: 'Directly scales spear and polearm thrust/swing damage' },
+        secondary: { name: 'DEX', val: baseDex, note: 'מעניק דיוק הכרחי לפגיעה', noteEn: 'Provides essential Accuracy required to hit enemies' },
+        rule: isDexless ? '5 נקודות ב-STR בכל רמה!' : 'השקע ב-DEX לפי דרישת הנשק והשאר ב-STR.',
+        ruleEn: isDexless ? 'Put all 5 AP into STR every level-up!' : 'Allocate DEX according to weapon requirements, all remaining AP into STR.'
       };
     },
     skills1: [
@@ -441,10 +489,10 @@ export const CLASSES_DATA = {
       { id: 'finalAttack', name: 'Final Attack: Spear', nameHe: 'התקפה מסיימת (רומח)', max: 30, icon: '⚔️', optimal: 30, desc: 'עודכן ב-MSCW v1.0.0: משך הזמן הוארך ל-60 שניות! מנחית מכת דקירה נוספת אוטומטית לאחר תקיפה.' }
     ],
     huntingSpots: [
-      { range: '10-20', name: 'Henesys Hunting Ground I', why: 'חיסול פטריות עם Power Strike ו-Slash Blast.' },
-      { range: '21-30', name: 'Land of Wild Boar (פריון)', why: 'צפיפות חזירי בר מושלמת לטווח הארוך של הרומח.' },
-      { range: '31-50', name: 'LPQ & Chronos', why: 'כל פארטי חייב ספירמן בזכות Hyper Body שמכפיל את החיים של כולם נגד הבוס Alishar!' },
-      { range: '51-70', name: 'Forest of Golems (סליפיווד)', why: 'חיסול גולמי אבן ענקיים עם Hyper Body שמונע מוות במכה אחת.' }
+      { range: '10-20', name: 'Henesys Hunting Ground I', why: 'חיסול פטריות עם Power Strike ו-Slash Blast.', nameEn: 'Henesys Hunting Ground I', whyEn: 'Power Strike and Slash Blast provide straightforward mushroom farming.' },
+      { range: '21-30', name: 'Land of Wild Boar (פריון)', why: 'צפיפות חזירי בר מושלמת לטווח הארוך של הרומח.', nameEn: 'Land of Wild Boar (Perion)', whyEn: 'Dense Wild Boar mobs suit the superior thrust reach of polearms and spears.' },
+      { range: '31-50', name: 'LPQ & Chronos', why: 'כל פארטי חייב ספירמן בזכות Hyper Body שמכפיל את החיים של כולם נגד הבוס Alishar!', nameEn: 'Ludibrium PQ & Chronos', whyEn: 'Mandatory party MVP: Hyper Body doubles everyone\'s Max HP/MP against boss Alishar!' },
+      { range: '51-70', name: 'Forest of Golems (סליפיווד)', why: 'חיסול גולמי אבן ענקיים עם Hyper Body שמונע מוות במכה אחת.', nameEn: 'Forest of Golems (Sleepywood)', whyEn: 'Tackle giant Stone Golems safely thanks to Hyper Body preventing one-shot deaths.' }
     ],
     gearProgression: [
       { level: 20, name: 'Fish Spear', att: '39 ATT', speed: 'Fast', where: 'חנות נשקים בנמל לית (Lith Harbor) (דרישה: 25 DEX)' },
@@ -464,8 +512,13 @@ export const CLASSES_DATA = {
     name: 'Hunter',
     nameHe: 'קשת מהיר (Hunter / Ranger)',
     tagline: 'יורה חצים בקצב מסחרר • פצצות חץ Arrow Bomb המהממות מפלצות מרחוק!',
+    taglineEn: 'Rapid-Fire Long-Range Sniper • Mob-Stunning Arrow Bomb Barrage',
     icon: '🏹',
     themeColor: 'emerald',
+    townEn: 'Henesys',
+    job1NameEn: 'Bowman',
+    job2NameEn: 'Hunter',
+    instructor1En: 'Athena Pierce (Henesys Bowmans Hall)',
     town: 'Henesys (הנסיס)',
     job1Name: 'Bowman (קשת)',
     job2Name: 'Hunter (הנטר)',
@@ -479,24 +532,27 @@ export const CLASSES_DATA = {
         id: 'strless', 
         name: 'Strless Bowman', 
         nameHe: '✨ קשת Strless (4 STR בסיסי)', 
-        desc: 'דורש ציוד עם תוספת STR גבוהה כדי לעמוד בדרישות הקשתות בהשקה.' 
+        desc: 'דורש ציוד עם תוספת STR גבוהה כדי לעמוד בדרישות הקשתות בהשקה.', 
+        descEn: 'Pumps pure DEX for extreme ranged damage, relying on high STR-bonus equipment to satisfy bow equip requirements.' 
       },
       { 
         id: 'regular', 
-        name: 'Regular DEX', 
+        name: 'Standard Bowman', 
         nameHe: '⚖️ קשת מאוזן (STR = רמה + 5)', 
-        desc: 'הבילד הקלאסי והמומלץ ביותר בהשקת Classic World! מאפשר לבישת כל קשתות ושריונות הקשתים בצורה חלקה.' 
+        desc: 'הבילד הקלאסי והמומלץ ביותר בהשקת Classic World! מאפשר לבישת כל קשתות ושריונות הקשתים בצורה חלקה.', 
+        descEn: 'The classic bowman progression (STR = Level + 5), effortlessly equipping all bows (Ryden, Red Viper, Olympus) and archer gear.' 
       }
     ],
     statFormula: (lvl, build) => {
-      const isStrless = build === 'strless';
+      const isStrless = build === 'strless' || build === 'dexless' || build === 'pure';
       const baseStr = isStrless ? 4 : Math.min(80, lvl + 5);
       const totalAp = (lvl - 1) * 5;
       const dex = 4 + totalAp - (baseStr - 4);
       return {
-        primary: { name: 'DEX', val: dex, note: 'מעלה ישירות את נזק החצים ואת הדיוק' },
-        secondary: { name: 'STR', val: baseStr, note: isStrless ? '4 בסיסי לצמיתות' : 'דרישת קשתות רגילות (רמה + 5)' },
-        rule: isStrless ? 'שים 5 נקודות ב-DEX בכל עליית רמה!' : 'השקע נקודה אחת ב-STR ו-4 ב-DEX בכל רמה.'
+        primary: { name: 'DEX', val: dex, note: 'מעלה ישירות את נזק החצים ואת הדיוק', noteEn: 'Directly increases arrow damage and base Accuracy' },
+        secondary: { name: 'STR', val: baseStr, note: isStrless ? '4 בסיסי לצמיתות' : 'דרישת קשתות רגילות (רמה + 5)', noteEn: isStrless ? 'Permanently kept at base 4 (Strless)' : 'Standard bow equip requirement (Level + 5)' },
+        rule: isStrless ? 'שים 5 נקודות ב-DEX בכל עליית רמה!' : 'השקע נקודה אחת ב-STR ו-4 ב-DEX בכל רמה.',
+        ruleEn: isStrless ? 'Put all 5 AP into DEX every level-up!' : 'Add 1 AP into STR and 4 AP into DEX every level-up.'
       };
     },
     skills1: [
@@ -514,10 +570,10 @@ export const CLASSES_DATA = {
       { id: 'soulArrow', name: 'Soul Arrow : Bow', nameHe: 'חץ הנשמה (Soul Arrow)', max: 20, icon: '✨', optimal: 20, desc: 'מאפשר לירות חצים ללא שימוש בחצים במלאי כלל! חוסך מקום בתיק ועלויות.' }
     ],
     huntingSpots: [
-      { range: '10-20', name: 'Henesys Hunting Ground I', why: 'ירי כפול מחבלים ופלטפורמות עץ מוגבהות על פטריות.' },
-      { range: '21-30', name: 'Land of Wild Boar (פריון)', why: 'פלטפורמות סלע מושלמות לקשת לירי Double Shot מעל ראשי החזירים.' },
-      { range: '31-50', name: 'Ludibrium PQ & Lost Time 1', why: 'שימוש ב-Arrow Bomb להמם מפלצות שלמות ב-LPQ מרחוק.' },
-      { range: '51-70', name: 'Forest of Golems & Drakes', why: 'הקשת מנצל את טווח הענק שלו כדי לחסל גולמים ללא סכנת פגיעה.' }
+      { range: '10-20', name: 'Henesys Hunting Ground I', why: 'ירי כפול מחבלים ופלטפורמות עץ מוגבהות על פטריות.', nameEn: 'Henesys Hunting Ground I', whyEn: 'Rope climbing and perched wooden ledges for safe Double Shot sniping.' },
+      { range: '21-30', name: 'Land of Wild Boar (פריון)', why: 'פלטפורמות סלע מושלמות לקשת לירי Double Shot מעל ראשי החזירים.', nameEn: 'Land of Wild Boar (Perion)', whyEn: 'Natural rock perches let archers rain down Double Shot safely over charging Boars.' },
+      { range: '31-50', name: 'Ludibrium PQ & Lost Time 1', why: 'שימוש ב-Arrow Bomb להמם מפלצות שלמות ב-LPQ מרחוק.', nameEn: 'Ludibrium PQ & Lost Time 1', whyEn: 'Arrow Bomb stuns entire packs from across the screen in LPQ stages.' },
+      { range: '51-70', name: 'Forest of Golems & Drakes', why: 'הקשת מנצל את טווח הענק שלו כדי לחסל גולמים ללא סכנת פגיעה.', nameEn: 'Forest of Golems & Drakes', whyEn: 'Abuse extreme bow range to dispatch slow Golems without ever taking a hit.' }
     ],
     gearProgression: [
       { level: 10, name: 'War Bow', att: '25 ATT', speed: 'Fast', where: 'חנות נשקים בהנסיס (דרישה: 15 STR)' },
@@ -538,8 +594,13 @@ export const CLASSES_DATA = {
     name: 'Gunslinger',
     nameHe: 'אקדחן (Gunslinger / Outlaw)',
     tagline: 'שליף מהיר באקדחים וכדורים • ניידות שיא Dash & Wings ויריות ללא הפסקה!',
+    taglineEn: 'High-Speed Ranged Marksman • Dash Mobility, Wings Glide & Rapid Fire',
     icon: '🔫',
     themeColor: 'cyan',
+    townEn: 'Nautilus Harbor',
+    job1NameEn: 'Pirate',
+    job2NameEn: 'Gunslinger',
+    instructor1En: 'Kyrin (Nautilus Navigation Room)',
     town: 'Nautilus Harbor (נמל הנאוטילוס)',
     job1Name: 'Pirate (פיראט)',
     job2Name: 'Gunslinger (אקדחן)',
@@ -553,24 +614,27 @@ export const CLASSES_DATA = {
         id: 'strless', 
         name: 'Strless Gunslinger', 
         nameHe: '✨ אקדחן Strless (4 STR בסיסי)', 
-        desc: 'נזק יריות מקסימלי עם ציוד מוסיף STR כדי לעמוד בדרישות האקדחים.' 
+        desc: 'נזק יריות מקסימלי עם ציוד מוסיף STR כדי לעמוד בדרישות האקדחים.', 
+        descEn: 'Maximizes bullet damage through pure DEX, utilizing STR-bonus gear to meet gun requirements.' 
       },
       { 
         id: 'regular', 
-        name: 'Regular DEX', 
+        name: 'Standard Gunslinger', 
         nameHe: '⚖️ אקדחן מאוזן (STR = רמה)', 
-        desc: 'הבילד המומלץ בהשקה! מאפשר שימוש בכל מגוון האקדחים והמעילים לפי הרמה בצורה חלקה.' 
+        desc: 'הבילד המומלץ בהשקה! מאפשר שימוש בכל מגוון האקדחים והמעילים לפי הרמה בצורה חלקה.', 
+        descEn: 'Balanced build keeping STR equal to your character level (STR = Level) to equip all guns (Cold Mind, Shooting Star, Burning Hell) smoothly.' 
       }
     ],
     statFormula: (lvl, build) => {
-      const isStrless = build === 'strless';
+      const isStrless = build === 'strless' || build === 'dexless' || build === 'pure';
       const baseStr = isStrless ? 4 : Math.min(70, lvl);
       const totalAp = (lvl - 1) * 5;
       const dex = 4 + totalAp - (baseStr - 4);
       return {
-        primary: { name: 'DEX', val: dex, note: 'מעלה ישירות את נזק היריות של האקדח' },
-        secondary: { name: 'STR', val: baseStr, note: isStrless ? '4 בסיסי לצמיתות' : 'דרישת אקדחים רגילים (רמה)' },
-        rule: isStrless ? 'שים 5 נקודות ב-DEX בכל רמה!' : 'השקע 1 נקודה ב-STR ו-4 ב-DEX בכל עלייה.'
+        primary: { name: 'DEX', val: dex, note: 'מעלה ישירות את נזק היריות של האקדח', noteEn: 'Directly scales bullet and gun skill damage' },
+        secondary: { name: 'STR', val: baseStr, note: isStrless ? '4 בסיסי לצמיתות' : 'דרישת אקדחים רגילים (רמה)', noteEn: isStrless ? 'Permanently kept at base 4 (Strless)' : 'Standard gun equip requirement (Level)' },
+        rule: isStrless ? 'שים 5 נקודות ב-DEX בכל רמה!' : 'השקע 1 נקודה ב-STR ו-4 ב-DEX בכל עלייה.',
+        ruleEn: isStrless ? 'Put all 5 AP into DEX every level-up!' : 'Add 1 AP into STR and 4 AP into DEX every level-up.'
       };
     },
     skills1: [
@@ -588,10 +652,10 @@ export const CLASSES_DATA = {
       { id: 'blankShot', name: 'Blank Shot', nameHe: 'יריית סרק מהממת', max: 20, icon: '💥', optimal: 20, desc: 'יורה קליע סרק המהמם (Stun) עד 3 מפלצות.' }
     ],
     huntingSpots: [
-      { range: '10-20', name: 'Nautilus Waves & HHG1', why: 'ירי Double Fire ממרחק ושימוש ב-Dash לתנועה מהירה במפה.' },
-      { range: '21-30', name: 'Kerning City PQ & Wild Boars', why: 'קצב ירי מהיר מאוד המחסל מפלצות בודדות במהירות.' },
-      { range: '31-50', name: 'Land of Wild Boar II & LPQ', why: 'שימוש ב-Invisible Shot לתקיפת מספר חזירים ודאייה עם Wings מעל סכנות.' },
-      { range: '51-70', name: 'Coolies (זומבים במכרות אל נאת\')', why: 'חרישת EXP מהירה עם קליעים איכותיים ממרחק בטוח.' }
+      { range: '10-20', name: 'Nautilus Waves & HHG1', why: 'ירי Double Fire ממרחק ושימוש ב-Dash לתנועה מהירה במפה.', nameEn: 'Nautilus Waves & HHG1', whyEn: 'Double Fire ranged shooting paired with Dash for swift map traversal.' },
+      { range: '21-30', name: 'Kerning City PQ & Wild Boars', why: 'קצב ירי מהיר מאוד המחסל מפלצות בודדות במהירות.', nameEn: 'Kerning City PQ & Wild Boars', whyEn: 'High fire rate quickly picking off single targets one by one.' },
+      { range: '31-50', name: 'Land of Wild Boar II & LPQ', why: 'שימוש ב-Invisible Shot לתקיפת מספר חזירים ודאייה עם Wings מעל סכנות.', nameEn: 'Land of Wild Boar II & LPQ', whyEn: 'Invisible Shot for multi-target bullet spreads, gliding over hazards with Wings.' },
+      { range: '51-70', name: 'Coolies (זומבים במכרות אל נאת\')', why: 'חרישת EXP מהירה עם קליעים איכותיים ממרחק בטוח.', nameEn: 'Coolie Zombies (El Nath Dead Mine)', whyEn: 'Fast ranged EXP grinding from safe ledges with pure bullet fire.' }
     ],
     gearProgression: [
       { level: 10, name: 'Novice Gun', att: '12 ATT', speed: 'Fast', where: 'חנות נמל הנאוטילוס (דרישה: 10 STR)' },

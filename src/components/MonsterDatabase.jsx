@@ -327,24 +327,6 @@ export default function MonsterDatabase() {
                 </div>
               </div>
 
-              {/* Spawn Locations List */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <span>📍</span> מפות שבהן המפלצת נוצרת (Spawn Maps):
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedMonster.locations.map((loc, idx) => (
-                    <span
-                      key={idx}
-                      className="text-xs liquid-glass-pill px-3 py-1.5 rounded-xl border border-white/10 text-slate-100 font-medium flex items-center gap-1.5"
-                    >
-                      <span className="text-sky-300 font-mono">#{idx + 1}</span>
-                      <span>{loc}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
               {/* Visual Travel & Arrival Guide (Unified for ALL monsters & all locations) */}
               <VisualTravelGuide monster={selectedMonster} />
 

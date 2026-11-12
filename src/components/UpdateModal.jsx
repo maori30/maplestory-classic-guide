@@ -18,7 +18,7 @@ export default function UpdateModal({ isOpen, onClose }) {
   const performCheck = async () => {
     setLoading(true);
     try {
-      const res = await checkForAppUpdates();
+      const res = await checkForAppUpdates(true);
       setUpdateInfo(res);
     } catch (e) {
       setUpdateInfo({ error: e.message, hasUpdate: false, currentVersion: CURRENT_VERSION });
@@ -28,9 +28,7 @@ export default function UpdateModal({ isOpen, onClose }) {
   };
 
   useEffect(() => {
-    if (isOpen) {
-      performCheck();
-    }
+    // Safe manual check only - never auto-ping GitHub on modal mount
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -97,6 +95,30 @@ export default function UpdateModal({ isOpen, onClose }) {
               {isEn ? 'Open' : 'פתח'} ↗
             </a>
           </div>
+
+          {/* Initial Idle State: Manual Check */}
+          {!loading && !updateInfo && (
+            <div className="liquid-glass-card p-6 rounded-2xl border border-sky-400/30 text-center space-y-4">
+              <div className="text-4xl">🛡️</div>
+              <div>
+                <h3 className="font-black text-white text-base">
+                  {isEn ? 'Local Database Fully Verified' : 'מסד הנתונים המקומי מאומת ומעודכן'}
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto">
+                  {isEn
+                    ? 'All monsters, drops, maps, and quests are bundled offline. Click below to manually check GitHub for software executable releases.'
+                    : 'כל המפלצות, המפות, הדרופים והמשימות מאומתים ומוטמעים מקומית. לחץ על הכפתור לבדיקה יזומה מול שחרורי הגרסאות ב-GitHub.'}
+                </p>
+              </div>
+              <button
+                onClick={performCheck}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-slate-950 font-black text-xs shadow-lg transition flex items-center gap-2 mx-auto cursor-pointer"
+              >
+                <span>🔍</span>
+                <span>{isEn ? 'Check for Releases Now' : 'בדוק שחרור גרסאות כעת'}</span>
+              </button>
+            </div>
+          )}
 
           {/* Loading State */}
           {loading && (
